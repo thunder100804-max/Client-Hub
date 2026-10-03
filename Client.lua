@@ -411,71 +411,69 @@ ESPGroup:AddLabel("ESP Color"):AddColorPicker("ESPColor", {
 })
 
 -- Combat settings
--- Combat settings
 local CombatPlayers = game:GetService("Players")
 local CombatUserInputService = game:GetService("UserInputService")
 local CombatRunService = game:GetService("RunService")
 
 local CombatLocalPlayer = CombatPlayers.LocalPlayer
-local CombatPlayerGui = CombatLocalPlayer:WaitForChild("PlayerGui")
+local CombatCamera = workspace.CurrentCamera
 
 local CombatSettings = {
 	Enabled = false,
 	Targeting = false,
 	ShowFOV = true,
 	FOV = 150,
-	FOVColor = Color3.fromRGB(255, 255, 255),
-	FOVTransparency = 0.25,
+	FOVColor = Color3.fromRGB(0, 170, 255),
 	FOVThickness = 2,
-	MaxDistance = 500,
-	TeamCheck = true,
-	VisibleCheck = true,
+
+	MaxDistance = 1000,
+	TeamCheck = false,
+	VisibleCheck = false,
+
 	LockTarget = true,
 	AutoSwitch = true,
+
 	TargetMarker = true,
 	TargetColor = Color3.fromRGB(255, 80, 80),
-	TargetPart = "Head"
+	TargetPart = "Head",
+
+	Smoothness = 0.18,
 }
 
-local OldCombatGui = CombatPlayerGui:FindFirstChild("VELTRIX_CombatUI")
-
-if OldCombatGui then
-	OldCombatGui:Destroy()
-end
+local CombatCurrentTarget = nil
+local CombatOriginalCameraType = nil
+local CombatOriginalCameraSubject = nil
 
 local CombatGui = Instance.new("ScreenGui")
 CombatGui.Name = "VELTRIX_CombatUI"
 CombatGui.ResetOnSpawn = false
 CombatGui.IgnoreGuiInset = true
-CombatGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-CombatGui.Parent = CombatPlayerGui
+CombatGui.Parent = CombatLocalPlayer:WaitForChild("PlayerGui")
 
-local FOV = Instance.new("Frame")
-FOV.Name = "FOV"
-FOV.AnchorPoint = Vector2.new(0.5, 0.5)
-FOV.Size = UDim2.fromOffset(300, 300)
-FOV.BackgroundTransparency = 1
-FOV.Visible = false
-FOV.ZIndex = 20
-FOV.Parent = CombatGui
+local FOVCircle = Instance.new("Frame")
+FOVCircle.Name = "FOVCircle"
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVCircle.Position = UDim2.fromScale(0.5, 0.5)
+FOVCircle.Size = UDim2.fromOffset(CombatSettings.FOV * 2, CombatSettings.FOV * 2)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.Parent = CombatGui
 
 local FOVCorner = Instance.new("UICorner")
 FOVCorner.CornerRadius = UDim.new(1, 0)
-FOVCorner.Parent = FOV
+FOVCorner.Parent = FOVCircle
 
 local FOVStroke = Instance.new("UIStroke")
 FOVStroke.Thickness = CombatSettings.FOVThickness
 FOVStroke.Color = CombatSettings.FOVColor
-FOVStroke.Transparency = CombatSettings.FOVTransparency
-FOVStroke.Parent = FOV
+FOVStroke.Transparency = 0.15
+FOVStroke.Parent = FOVCircle
 
 local TargetMarker = Instance.new("Frame")
 TargetMarker.Name = "TargetMarker"
 TargetMarker.AnchorPoint = Vector2.new(0.5, 0.5)
-TargetMarker.Size = UDim2.fromOffset(14, 14)
-TargetMarker.BackgroundTransparency = 1
+TargetMarker.Size = UDim2.fromOffset(12, 12)
+TargetMarker.BackgroundColor3 = CombatSettings.TargetColor
 TargetMarker.Visible = false
-TargetMarker.ZIndex = 25
 TargetMarker.Parent = CombatGui
 
 local TargetCorner = Instance.new("UICorner")
@@ -484,33 +482,33 @@ TargetCorner.Parent = TargetMarker
 
 local TargetStroke = Instance.new("UIStroke")
 TargetStroke.Thickness = 2
-TargetStroke.Color = CombatSettings.TargetColor
-TargetStroke.Transparency = 0
+TargetStroke.Color = Color3.new(1, 1, 1)
 TargetStroke.Parent = TargetMarker
-
-local TargetDot = Instance.new("Frame")
-TargetDot.Name = "Dot"
-TargetDot.AnchorPoint = Vector2.new(0.5, 0.5)
-TargetDot.Position = UDim2.fromScale(0.5, 0.5)
-TargetDot.Size = UDim2.fromOffset(4, 4)
-TargetDot.BackgroundColor3 = CombatSettings.TargetColor
-TargetDot.BorderSizePixel = 0
-TargetDot.Parent = TargetMarker
-
-local TargetDotCorner = Instance.new("UICorner")
-TargetDotCorner.CornerRadius = UDim.new(1, 0)
-TargetDotCorner.Parent = TargetDot
 
 local CombatGroup = Tabs.Combat:AddLeftGroupbox("Combat")
 
 CombatGroup:AddToggle("CombatAssist", {
-	Text = "Combat Assist",
+	Text = "Combat Camera",
 	Default = false,
 	Callback = function(Value)
 		CombatSettings.Enabled = Value
 
 		if not Value then
 			CombatSettings.Targeting = false
+			CombatCurrentTarget = nil
+
+			if CombatOriginalCameraType then
+				CombatCamera.CameraType = CombatOriginalCameraType
+			else
+				CombatCamera.CameraType = Enum.CameraType.Custom
+			end
+
+			if CombatOriginalCameraSubject then
+				CombatCamera.CameraSubject = CombatOriginalCameraSubject
+			end
+
+			CombatOriginalCameraType = nil
+			CombatOriginalCameraSubject = nil
 			TargetMarker.Visible = false
 		end
 	end
@@ -522,8 +520,19 @@ CombatGroup:AddToggle("TargetingEnabled", {
 	Callback = function(Value)
 		CombatSettings.Targeting = Value
 
+		if Value and not CombatOriginalCameraType then
+			CombatOriginalCameraType = CombatCamera.CameraType
+			CombatOriginalCameraSubject = CombatCamera.CameraSubject
+		end
+
 		if not Value then
+			CombatCurrentTarget = nil
 			TargetMarker.Visible = false
+
+			if CombatSettings.Enabled then
+				CombatCamera.CameraType = Enum.CameraType.Custom
+				CombatCamera.CameraSubject = CombatLocalPlayer.Character
+			end
 		end
 	end
 })
@@ -533,6 +542,10 @@ CombatGroup:AddToggle("LockTarget", {
 	Default = true,
 	Callback = function(Value)
 		CombatSettings.LockTarget = Value
+
+		if not Value then
+			CombatCurrentTarget = nil
+		end
 	end
 })
 
@@ -546,7 +559,7 @@ CombatGroup:AddToggle("AutoSwitch", {
 
 CombatGroup:AddToggle("TeamCheck", {
 	Text = "Team Check",
-	Default = true,
+	Default = false,
 	Callback = function(Value)
 		CombatSettings.TeamCheck = Value
 	end
@@ -554,7 +567,7 @@ CombatGroup:AddToggle("TeamCheck", {
 
 CombatGroup:AddToggle("VisibleCheck", {
 	Text = "Visible Check",
-	Default = true,
+	Default = false,
 	Callback = function(Value)
 		CombatSettings.VisibleCheck = Value
 	end
@@ -565,6 +578,7 @@ CombatGroup:AddToggle("ShowFOV", {
 	Default = true,
 	Callback = function(Value)
 		CombatSettings.ShowFOV = Value
+		FOVCircle.Visible = Value
 	end
 })
 
@@ -583,18 +597,19 @@ CombatGroup:AddToggle("TargetMarkerEnabled", {
 CombatGroup:AddSlider("CombatFOV", {
 	Text = "FOV",
 	Default = 150,
-	Min = 25,
+	Min = 50,
 	Max = 500,
 	Rounding = 0,
 	Compact = true,
 	Callback = function(Value)
 		CombatSettings.FOV = Value
+		FOVCircle.Size = UDim2.fromOffset(Value * 2, Value * 2)
 	end
 })
 
 CombatGroup:AddSlider("MaxTargetDistance", {
 	Text = "Max Distance",
-	Default = 500,
+	Default = 1000,
 	Min = 50,
 	Max = 5000,
 	Rounding = 0,
@@ -617,37 +632,46 @@ CombatGroup:AddSlider("FOVThickness", {
 	end
 })
 
-CombatGroup:AddLabel("FOV Color"):AddColorPicker("CombatFOVColor", {
+CombatGroup:AddColorPicker("CombatFOVColor", {
 	Default = CombatSettings.FOVColor,
 	Title = "FOV Color",
-	Transparency = 0,
 	Callback = function(Value)
 		CombatSettings.FOVColor = Value
 		FOVStroke.Color = Value
 	end
 })
 
-CombatGroup:AddLabel("Target Color"):AddColorPicker("CombatTargetColor", {
+CombatGroup:AddColorPicker("CombatTargetColor", {
 	Default = CombatSettings.TargetColor,
 	Title = "Target Color",
-	Transparency = 0,
 	Callback = function(Value)
 		CombatSettings.TargetColor = Value
-		TargetStroke.Color = Value
-		TargetDot.BackgroundColor3 = Value
+		TargetMarker.BackgroundColor3 = Value
 	end
 })
 
-CombatGroup:AddLabel("Activation Key"):AddKeyPicker("CombatKeybind", {
+CombatGroup:AddKeyPicker("CombatKeybind", {
 	Default = "Q",
-	NoUI = false,
-	Text = "Combat Hotkey",
-	Mode = "Toggle"
+	Text = "Target Key",
+	Mode = "Toggle",
+	Callback = function(Value)
+		CombatSettings.Targeting = Value
+
+		if Value then
+			CombatOriginalCameraType = CombatCamera.CameraType
+			CombatOriginalCameraSubject = CombatCamera.CameraSubject
+		else
+			CombatCurrentTarget = nil
+			TargetMarker.Visible = false
+			CombatCamera.CameraType = Enum.CameraType.Custom
+			CombatCamera.CameraSubject = CombatLocalPlayer.Character
+		end
+	end
 })
 
-local CombatRight = Tabs.Combat:AddRightGroupbox("Target")
+local TargetGroup = Tabs.Combat:AddRightGroupbox("Target")
 
-CombatRight:AddDropdown("TargetPart", {
+TargetGroup:AddDropdown("TargetPart", {
 	Values = {
 		"Head",
 		"HumanoidRootPart",
@@ -660,72 +684,67 @@ CombatRight:AddDropdown("TargetPart", {
 	end
 })
 
-local CurrentTarget = nil
+TargetGroup:AddSlider("CameraSmoothness", {
+	Text = "Camera Smoothness",
+	Default = 18,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+	Callback = function(Value)
+		CombatSettings.Smoothness = Value / 100
+	end
+})
 
 local function IsValidCombatTarget(Player)
 	if not Player or Player == CombatLocalPlayer then
 		return false
 	end
 
-	if CombatSettings.TeamCheck then
-		if Player.Team ~= nil and CombatLocalPlayer.Team ~= nil then
-			if Player.Team == CombatLocalPlayer.Team then
-				return false
-			end
-		end
-	end
-
 	local Character = Player.Character
-
 	if not Character then
 		return false
 	end
 
 	local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-
 	if not Humanoid or Humanoid.Health <= 0 then
 		return false
 	end
 
+	if CombatSettings.TeamCheck and Player.Team == CombatLocalPlayer.Team then
+		return false
+	end
+
 	local TargetPart = Character:FindFirstChild(CombatSettings.TargetPart)
-
-	if not TargetPart or not TargetPart:IsA("BasePart") then
+	if not TargetPart then
 		return false
 	end
 
-	local Camera = workspace.CurrentCamera
+	local LocalCharacter = CombatLocalPlayer.Character
+	local LocalRoot = LocalCharacter and LocalCharacter:FindFirstChild("HumanoidRootPart")
 
-	if not Camera then
-		return false
-	end
+	if LocalRoot then
+		local Distance = (TargetPart.Position - LocalRoot.Position).Magnitude
 
-	local Distance = (TargetPart.Position - Camera.CFrame.Position).Magnitude
-
-	if Distance > CombatSettings.MaxDistance then
-		return false
-	end
-
-	if CombatSettings.VisibleCheck then
-		local Parameters = RaycastParams.new()
-		Parameters.FilterType = Enum.RaycastFilterType.Exclude
-
-		local Ignore = {}
-
-		if CombatLocalPlayer.Character then
-			table.insert(Ignore, CombatLocalPlayer.Character)
+		if Distance > CombatSettings.MaxDistance then
+			return false
 		end
+	end
 
-		Parameters.FilterDescendantsInstances = Ignore
+	if CombatSettings.VisibleCheck and LocalCharacter then
+		local Origin = CombatCamera.CFrame.Position
+		local Direction = TargetPart.Position - Origin
 
-		local Direction = TargetPart.Position - Camera.CFrame.Position
+		local Params = RaycastParams.new()
+		Params.FilterType = Enum.RaycastFilterType.Exclude
+		Params.FilterDescendantsInstances = {
+			LocalCharacter,
+			Character
+		}
 
-		local Result = workspace:Raycast(
-			Camera.CFrame.Position,
-			Direction,
-			Parameters
-		)
+		local Result = workspace:Raycast(Origin, Direction, Params)
 
-		if Result and not Result.Instance:IsDescendantOf(Character) then
+		if Result then
 			return false
 		end
 	end
@@ -734,15 +753,9 @@ local function IsValidCombatTarget(Player)
 end
 
 local function GetClosestCombatTarget()
-	local Camera = workspace.CurrentCamera
-
-	if not Camera then
-		return nil
-	end
-
-	local MousePosition = CombatUserInputService:GetMouseLocation()
-	local BestPlayer = nil
-	local BestScreenDistance = CombatSettings.FOV
+	local MousePosition = CombatCamera.ViewportSize / 2
+	local ClosestPlayer = nil
+	local ClosestDistance = CombatSettings.FOV
 
 	for _, Player in ipairs(CombatPlayers:GetPlayers()) do
 		if IsValidCombatTarget(Player) then
@@ -750,147 +763,148 @@ local function GetClosestCombatTarget()
 			local TargetPart = Character and Character:FindFirstChild(CombatSettings.TargetPart)
 
 			if TargetPart then
-				local ScreenPosition, OnScreen =
-					Camera:WorldToViewportPoint(TargetPart.Position)
+				local ScreenPosition, OnScreen = CombatCamera:WorldToViewportPoint(TargetPart.Position)
 
-				if OnScreen and ScreenPosition.Z > 0 then
-					local ScreenPoint = Vector2.new(
-						ScreenPosition.X,
-						ScreenPosition.Y
-					)
+				if OnScreen then
+					local Distance = (
+						Vector2.new(ScreenPosition.X, ScreenPosition.Y)
+						- MousePosition
+					).Magnitude
 
-					local ScreenDistance =
-						(ScreenPoint - MousePosition).Magnitude
-
-					if ScreenDistance <= BestScreenDistance then
-						BestScreenDistance = ScreenDistance
-						BestPlayer = Player
+					if Distance < ClosestDistance then
+						ClosestDistance = Distance
+						ClosestPlayer = Player
 					end
 				end
 			end
 		end
 	end
 
-	return BestPlayer
+	return ClosestPlayer
 end
 
 local function ClearCombatTarget()
-	CurrentTarget = nil
+	CombatCurrentTarget = nil
 	TargetMarker.Visible = false
 end
 
-local function UpdateTargetMarker(Camera)
-	if not CombatSettings.TargetMarker then
+local function UpdateTargetMarker()
+	if not CombatSettings.TargetMarker or not CombatCurrentTarget then
 		TargetMarker.Visible = false
 		return
 	end
 
-	if not CurrentTarget then
-		TargetMarker.Visible = false
-		return
-	end
-
-	if not IsValidCombatTarget(CurrentTarget) then
-		TargetMarker.Visible = false
-		return
-	end
-
-	local Character = CurrentTarget.Character
-
+	local Character = CombatCurrentTarget.Character
 	if not Character then
 		TargetMarker.Visible = false
 		return
 	end
 
 	local TargetPart = Character:FindFirstChild(CombatSettings.TargetPart)
-
 	if not TargetPart then
 		TargetMarker.Visible = false
 		return
 	end
 
-	local ScreenPosition, OnScreen =
-		Camera:WorldToViewportPoint(TargetPart.Position)
+	local Position, Visible = CombatCamera:WorldToViewportPoint(TargetPart.Position)
 
-	if not OnScreen or ScreenPosition.Z <= 0 then
+	if Visible then
+		TargetMarker.Position = UDim2.fromOffset(Position.X, Position.Y)
+		TargetMarker.Visible = true
+	else
 		TargetMarker.Visible = false
-		return
 	end
-
-	TargetMarker.Position = UDim2.fromOffset(
-		ScreenPosition.X,
-		ScreenPosition.Y
-	)
-
-	TargetMarker.Visible = true
 end
 
-CombatUserInputService.InputBegan:Connect(function(Input, Processed)
-	if Processed then
+CombatUserInputService.InputBegan:Connect(function(Input, GameProcessed)
+	if GameProcessed then
 		return
 	end
 
-	local Key = Options.CombatKeybind.Value
+	if Input.KeyCode == Enum.KeyCode.Q then
+		if not CombatSettings.Enabled then
+			return
+		end
 
-	if typeof(Key) == "EnumItem" and Key.EnumType == Enum.KeyCode then
-		if Input.KeyCode == Key then
-			if not CombatSettings.Enabled then
-				return
-			end
+		CombatSettings.Targeting = not CombatSettings.Targeting
 
-			CombatSettings.Targeting = not CombatSettings.Targeting
-
-			if not CombatSettings.Targeting then
-				ClearCombatTarget()
-			end
+		if CombatSettings.Targeting then
+			CombatOriginalCameraType = CombatCamera.CameraType
+			CombatOriginalCameraSubject = CombatCamera.CameraSubject
+		else
+			ClearCombatTarget()
+			CombatCamera.CameraType = Enum.CameraType.Custom
+			CombatCamera.CameraSubject = CombatLocalPlayer.Character
 		end
 	end
 end)
 
 CombatRunService.RenderStepped:Connect(function()
-	local Camera = workspace.CurrentCamera
+	FOVCircle.Visible = CombatSettings.ShowFOV
 
-	if not Camera then
+	if not CombatSettings.Enabled or not CombatSettings.Targeting then
+		TargetMarker.Visible = false
 		return
 	end
 
-	local MousePosition = CombatUserInputService:GetMouseLocation()
+	if not CombatCurrentTarget
+		or not IsValidCombatTarget(CombatCurrentTarget)
+		or CombatSettings.AutoSwitch then
 
-	FOV.Position = UDim2.fromOffset(
-		MousePosition.X,
-		MousePosition.Y
-	)
+		local NewTarget = GetClosestCombatTarget()
 
-	FOV.Size = UDim2.fromOffset(
-		CombatSettings.FOV * 2,
-		CombatSettings.FOV * 2
-	)
+		if NewTarget then
+			CombatCurrentTarget = NewTarget
+		elseif not CombatCurrentTarget then
+			TargetMarker.Visible = false
+			return
+		end
+	end
 
-	FOVStroke.Color = CombatSettings.FOVColor
-	FOVStroke.Thickness = CombatSettings.FOVThickness
-	FOVStroke.Transparency = CombatSettings.FOVTransparency
+	if not CombatCurrentTarget then
+		return
+	end
 
-	FOV.Visible =
-		CombatSettings.Enabled
-		and CombatSettings.ShowFOV
+	local Character = CombatCurrentTarget.Character
+	local TargetPart = Character and Character:FindFirstChild(CombatSettings.TargetPart)
 
-	if not CombatSettings.Enabled or not CombatSettings.Targeting then
+	if not TargetPart then
 		ClearCombatTarget()
 		return
 	end
 
-	if CombatSettings.AutoSwitch then
-		CurrentTarget = GetClosestCombatTarget()
-	elseif not CurrentTarget or not IsValidCombatTarget(CurrentTarget) then
-		CurrentTarget = GetClosestCombatTarget()
-	end
+	CombatCamera.CameraType = Enum.CameraType.Scriptable
 
-	UpdateTargetMarker(Camera)
+	local CameraPosition = CombatCamera.CFrame.Position
+	local TargetPosition = TargetPart.Position
+
+	local DesiredCFrame = CFrame.lookAt(
+		CameraPosition,
+		TargetPosition
+	)
+
+	local Smooth = math.clamp(CombatSettings.Smoothness, 0.01, 1)
+
+	CombatCamera.CFrame = CombatCamera.CFrame:Lerp(
+		DesiredCFrame,
+		Smooth
+	)
+
+	UpdateTargetMarker()
 end)
 
 CombatPlayers.PlayerRemoving:Connect(function(Player)
-	if Player == CurrentTarget then
+	if Player == CombatCurrentTarget then
 		ClearCombatTarget()
+	end
+end)
+
+CombatLocalPlayer.CharacterAdded:Connect(function()
+	task.wait(0.5)
+
+	if not CombatSettings.Targeting then
+		CombatCamera.CameraType = Enum.CameraType.Custom
+		CombatCamera.CameraSubject = CombatLocalPlayer.Character
 	end
 end)
 
