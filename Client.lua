@@ -964,179 +964,117 @@ CombatLocalPlayer.CharacterAdded:Connect(function()
 end)
 
 -- Main Tab 
-local Players = game:GetService("Players")
-
-local LocalPlayer = Players.LocalPlayer
-
 local MainTab = Tabs.Main
+local MainPlayer = Players.LocalPlayer
 
 local ProfileGroup = MainTab:AddLeftGroupbox("Profile")
 
-local ProfileAvatar = Instance.new("ImageLabel")
-ProfileAvatar.Name = "ProfileAvatar"
-ProfileAvatar.Size = UDim2.fromOffset(72, 72)
-ProfileAvatar.Position = UDim2.fromOffset(8, 8)
-ProfileAvatar.BackgroundTransparency = 1
-ProfileAvatar.BorderSizePixel = 0
-ProfileAvatar.ScaleType = Enum.ScaleType.Crop
-ProfileAvatar.ZIndex = 10
-
-local AvatarCorner = Instance.new("UICorner")
-AvatarCorner.CornerRadius = UDim.new(0, 8)
-AvatarCorner.Parent = ProfileAvatar
-
-local AvatarStroke = Instance.new("UIStroke")
-AvatarStroke.Thickness = 2
-AvatarStroke.Color = Color3.fromRGB(80, 140, 255)
-AvatarStroke.Transparency = 0
-AvatarStroke.Parent = ProfileAvatar
-
-local AvatarSuccess, AvatarImage = pcall(function()
-	return Players:GetUserThumbnailAsync(
-		LocalPlayer.UserId,
-		Enum.ThumbnailType.HeadShot,
-		Enum.ThumbnailSize.Size150x150
-	)
-end)
-
-if AvatarSuccess and AvatarImage then
-	ProfileAvatar.Image = AvatarImage
-end
-
-ProfileAvatar.Parent = ProfileGroup.Container
-
-ProfileGroup:AddLabel("Welcome, " .. LocalPlayer.DisplayName)
-ProfileGroup:AddLabel("@" .. LocalPlayer.Name)
-ProfileGroup:AddLabel("User ID: " .. tostring(LocalPlayer.UserId))
-ProfileGroup:AddLabel("Account age: " .. tostring(LocalPlayer.AccountAge) .. " days")
-
+ProfileGroup:AddLabel("TRIX PROFILE")
 ProfileGroup:AddDivider()
-
+ProfileGroup:AddLabel("Welcome, " .. MainPlayer.DisplayName)
+ProfileGroup:AddLabel("@" .. MainPlayer.Name)
+ProfileGroup:AddLabel("User ID: " .. tostring(MainPlayer.UserId))
+ProfileGroup:AddLabel("Account age: " .. tostring(MainPlayer.AccountAge) .. " days")
+ProfileGroup:AddDivider()
 ProfileGroup:AddLabel("Status: Ready")
 ProfileGroup:AddLabel("VELTRIX Member")
-
 
 local DashboardGroup = MainTab:AddLeftGroupbox("Dashboard")
 
 DashboardGroup:AddLabel("VELTRIX is ready.")
 DashboardGroup:AddLabel("Use the tabs to configure your settings.")
-
 DashboardGroup:AddDivider()
 
 DashboardGroup:AddButton("Open ESP", function()
-	if Tabs.Esp then
-		Library.SelectedTab = Tabs.Esp
-	end
+    Library.SelectedTab = Tabs.Esp
 end)
 
 DashboardGroup:AddButton("Open Combat", function()
-	if Tabs.Combat then
-		Library.SelectedTab = Tabs.Combat
-	end
+    Library.SelectedTab = Tabs.Combat
 end)
 
 DashboardGroup:AddDivider()
-
 DashboardGroup:AddLabel("ESP: Ready")
 DashboardGroup:AddLabel("Combat: Ready")
 DashboardGroup:AddLabel("UI: Ready")
 
-
 local QuickGroup = MainTab:AddRightGroupbox("Quick Settings")
 
 QuickGroup:AddToggle("QuickESP", {
-	Text = "ESP",
-	Default = false,
-	Callback = function(Value)
-		if Options.ESP then
-			Options.ESP:SetValue(Value)
-		end
-	end
+    Text = "ESP",
+    Default = false,
+    Callback = function(Value)
+        if Toggles.ESPEnabled then
+            Toggles.ESPEnabled:SetValue(Value)
+        end
+    end
 })
 
 QuickGroup:AddToggle("QuickCombat", {
-	Text = "Combat",
-	Default = false,
-	Callback = function(Value)
-		if Options.CombatAssist then
-			Options.CombatAssist:SetValue(Value)
-		end
-	end
+    Text = "Combat",
+    Default = false,
+    Callback = function(Value)
+        if Toggles.CombatAssist then
+            Toggles.CombatAssist:SetValue(Value)
+        end
+    end
 })
 
 QuickGroup:AddToggle("QuickFOV", {
-	Text = "FOV",
-	Default = true,
-	Callback = function(Value)
-		if Options.ShowFOV then
-			Options.ShowFOV:SetValue(Value)
-		end
-	end
+    Text = "FOV",
+    Default = true,
+    Callback = function(Value)
+        if Toggles.ShowFOV then
+            Toggles.ShowFOV:SetValue(Value)
+        end
+    end
 })
 
 QuickGroup:AddDivider()
 
 QuickGroup:AddButton("Reset Settings", function()
-	if Options.QuickESP then
-		Options.QuickESP:SetValue(false)
-	end
+    if Toggles.QuickESP then
+        Toggles.QuickESP:SetValue(false)
+    end
 
-	if Options.QuickCombat then
-		Options.QuickCombat:SetValue(false)
-	end
+    if Toggles.QuickCombat then
+        Toggles.QuickCombat:SetValue(false)
+    end
 
-	if Options.QuickFOV then
-		Options.QuickFOV:SetValue(true)
-	end
+    if Toggles.QuickFOV then
+        Toggles.QuickFOV:SetValue(true)
+    end
 end)
-
 
 local PremiumGroup = MainTab:AddRightGroupbox("Premium")
 
 PremiumGroup:AddLabel("VELTRIX Premium")
 PremiumGroup:AddLabel("Premium features are")
 PremiumGroup:AddLabel("coming soon.")
-
 PremiumGroup:AddDivider()
-
 PremiumGroup:AddLabel("Premium Status: Free")
 
 PremiumGroup:AddButton("Premium Info", function()
-	Library:Notify("Premium features are coming soon.", 3)
+    Library:Notify("Premium features are coming soon.", 3)
 end)
-
 
 local InfoGroup = MainTab:AddLeftGroupbox("Information")
 
 InfoGroup:AddLabel("Menu: VELTRIX")
-InfoGroup:AddLabel("User: " .. LocalPlayer.DisplayName)
+InfoGroup:AddLabel("User: " .. MainPlayer.DisplayName)
 InfoGroup:AddLabel("Version: 1.0")
-
-InfoGroup:AddDivider()
-
 
 local SessionGroup = MainTab:AddRightGroupbox("Session")
 
 SessionGroup:AddLabel("Player")
-SessionGroup:AddLabel(LocalPlayer.DisplayName)
-
+SessionGroup:AddLabel(MainPlayer.DisplayName)
 SessionGroup:AddDivider()
 
 SessionGroup:AddLabel("Username")
-SessionGroup:AddLabel("@" .. LocalPlayer.Name)
-
+SessionGroup:AddLabel("@" .. MainPlayer.Name)
 SessionGroup:AddDivider()
 
 SessionGroup:AddLabel("User ID")
-SessionGroup:AddLabel(tostring(LocalPlayer.UserId))
-
--- Setup theme/save managers
-ThemeManager:SetLibrary(Library)
-SaveManager:SetLibrary(Library)
-ThemeManager:SetFolder('LinoriaExample')
-SaveManager:SetFolder('LinoriaExample/save')
-ThemeManager:ApplyToTab(Tabs['UI Settings'])
-SaveManager:BuildConfigSection(Tabs['UI Settings'])
-SaveManager:LoadAutoloadConfig()
+SessionGroup:AddLabel(tostring(MainPlayer.UserId))
 
 print('UI loaded successfully! Esp box removed from Main tab.')
