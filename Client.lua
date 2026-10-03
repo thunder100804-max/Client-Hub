@@ -962,6 +962,7 @@ CombatLocalPlayer.CharacterAdded:Connect(function()
 		ResetCamera()
 	end
 end)
+
 -- Main Tab 
 local Players = game:GetService("Players")
 
