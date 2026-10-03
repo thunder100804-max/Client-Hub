@@ -411,67 +411,65 @@ ESPGroup:AddLabel("ESP Color"):AddColorPicker("ESPColor", {
 })
 
 -- Combat settings
-local CombatPlayers = game:GetService("Players")
-local CombatRunService = game:GetService("RunService")
-local CombatUserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
-local CombatLocalPlayer = CombatPlayers.LocalPlayer
-local CombatCamera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 
 local CombatSettings = {
 	Enabled = false,
 	Targeting = false,
 	ShowFOV = true,
 	FOV = 150,
-	FOVColor = Color3.fromRGB(0, 170, 255),
+	FOVColor = Color3.fromRGB(255, 255, 255),
+	FOVTransparency = 0.25,
 	FOVThickness = 2,
-
-	MaxDistance = 1000,
-	TeamCheck = false,
-	VisibleCheck = false,
-
+	Smoothness = 0.18,
+	MaxDistance = 500,
+	TeamCheck = true,
+	VisibleCheck = true,
+	LockTarget = true,
 	AutoSwitch = true,
 	TargetMarker = true,
 	TargetColor = Color3.fromRGB(255, 80, 80),
-	TargetPart = "Head",
-
-	CameraDistance = 10,
-	CameraHeight = 4,
-	CameraSmoothness = 0.18,
-	CameraLookHeight = 2
+	TargetPart = "Head"
 }
 
-local CombatCurrentTarget = nil
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local CombatGui = Instance.new("ScreenGui")
 CombatGui.Name = "VELTRIX_CombatUI"
 CombatGui.ResetOnSpawn = false
 CombatGui.IgnoreGuiInset = true
-CombatGui.Parent = CombatLocalPlayer:WaitForChild("PlayerGui")
+CombatGui.Parent = PlayerGui
 
-local FOVCircle = Instance.new("Frame")
-FOVCircle.Name = "FOVCircle"
-FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-FOVCircle.Position = UDim2.fromScale(0.5, 0.5)
-FOVCircle.Size = UDim2.fromOffset(300, 300)
-FOVCircle.BackgroundTransparency = 1
-FOVCircle.Parent = CombatGui
+local FOV = Instance.new("Frame")
+FOV.Name = "FOV"
+FOV.AnchorPoint = Vector2.new(0.5, 0.5)
+FOV.Size = UDim2.fromOffset(
+	CombatSettings.FOV * 2,
+	CombatSettings.FOV * 2
+)
+FOV.BackgroundTransparency = 1
+FOV.Visible = false
+FOV.Parent = CombatGui
 
 local FOVCorner = Instance.new("UICorner")
 FOVCorner.CornerRadius = UDim.new(1, 0)
-FOVCorner.Parent = FOVCircle
+FOVCorner.Parent = FOV
 
 local FOVStroke = Instance.new("UIStroke")
 FOVStroke.Thickness = CombatSettings.FOVThickness
 FOVStroke.Color = CombatSettings.FOVColor
-FOVStroke.Transparency = 0.15
-FOVStroke.Parent = FOVCircle
+FOVStroke.Transparency = CombatSettings.FOVTransparency
+FOVStroke.Parent = FOV
 
 local TargetMarker = Instance.new("Frame")
 TargetMarker.Name = "TargetMarker"
 TargetMarker.AnchorPoint = Vector2.new(0.5, 0.5)
 TargetMarker.Size = UDim2.fromOffset(12, 12)
-TargetMarker.BackgroundColor3 = CombatSettings.TargetColor
+TargetMarker.BackgroundTransparency = 1
 TargetMarker.Visible = false
 TargetMarker.Parent = CombatGui
 
@@ -481,30 +479,21 @@ TargetCorner.Parent = TargetMarker
 
 local TargetStroke = Instance.new("UIStroke")
 TargetStroke.Thickness = 2
-TargetStroke.Color = Color3.new(1, 1, 1)
+TargetStroke.Color = CombatSettings.TargetColor
 TargetStroke.Parent = TargetMarker
 
 local CombatGroup = Tabs.Combat:AddLeftGroupbox("Combat")
 
-CombatGroup:AddToggle("CombatAssist", {
-	Text = "Combat Camera",
+CombatGroup:AddToggle("CombatEnabled", {
+	Text = "Combat Assist",
 	Default = false,
 	Callback = function(Value)
 		CombatSettings.Enabled = Value
 
 		if not Value then
 			CombatSettings.Targeting = false
-			CombatCurrentTarget = nil
+			FOV.Visible = false
 			TargetMarker.Visible = false
-
-			CombatCamera.CameraType = Enum.CameraType.Custom
-
-			local Character = CombatLocalPlayer.Character
-			local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-
-			if Humanoid then
-				CombatCamera.CameraSubject = Humanoid
-			end
 		end
 	end
 })
@@ -514,20 +503,14 @@ CombatGroup:AddToggle("TargetingEnabled", {
 	Default = false,
 	Callback = function(Value)
 		CombatSettings.Targeting = Value
+	end
+})
 
-		if not Value then
-			CombatCurrentTarget = nil
-			TargetMarker.Visible = false
-
-			CombatCamera.CameraType = Enum.CameraType.Custom
-
-			local Character = CombatLocalPlayer.Character
-			local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-
-			if Humanoid then
-				CombatCamera.CameraSubject = Humanoid
-			end
-		end
+CombatGroup:AddToggle("LockTarget", {
+	Text = "Lock Target",
+	Default = true,
+	Callback = function(Value)
+		CombatSettings.LockTarget = Value
 	end
 })
 
@@ -541,7 +524,7 @@ CombatGroup:AddToggle("AutoSwitch", {
 
 CombatGroup:AddToggle("TeamCheck", {
 	Text = "Team Check",
-	Default = false,
+	Default = true,
 	Callback = function(Value)
 		CombatSettings.TeamCheck = Value
 	end
@@ -549,7 +532,7 @@ CombatGroup:AddToggle("TeamCheck", {
 
 CombatGroup:AddToggle("VisibleCheck", {
 	Text = "Visible Check",
-	Default = false,
+	Default = true,
 	Callback = function(Value)
 		CombatSettings.VisibleCheck = Value
 	end
@@ -560,7 +543,6 @@ CombatGroup:AddToggle("ShowFOV", {
 	Default = true,
 	Callback = function(Value)
 		CombatSettings.ShowFOV = Value
-		FOVCircle.Visible = Value
 	end
 })
 
@@ -569,29 +551,37 @@ CombatGroup:AddToggle("TargetMarkerEnabled", {
 	Default = true,
 	Callback = function(Value)
 		CombatSettings.TargetMarker = Value
-
-		if not Value then
-			TargetMarker.Visible = false
-		end
 	end
 })
 
 CombatGroup:AddSlider("CombatFOV", {
 	Text = "FOV",
 	Default = 150,
-	Min = 50,
+	Min = 25,
 	Max = 500,
 	Rounding = 0,
 	Compact = true,
 	Callback = function(Value)
 		CombatSettings.FOV = Value
-		FOVCircle.Size = UDim2.fromOffset(Value * 2, Value * 2)
+		FOV.Size = UDim2.fromOffset(Value * 2, Value * 2)
+	end
+})
+
+CombatGroup:AddSlider("AimSmoothness", {
+	Text = "Smoothness",
+	Default = 18,
+	Min = 1,
+	Max = 100,
+	Rounding = 0,
+	Compact = true,
+	Callback = function(Value)
+		CombatSettings.Smoothness = Value / 100
 	end
 })
 
 CombatGroup:AddSlider("MaxTargetDistance", {
 	Text = "Max Distance",
-	Default = 1000,
+	Default = 500,
 	Min = 50,
 	Max = 5000,
 	Rounding = 0,
@@ -601,90 +591,49 @@ CombatGroup:AddSlider("MaxTargetDistance", {
 	end
 })
 
-CombatGroup:AddSlider("CameraDistance", {
-	Text = "Camera Distance",
-	Default = 10,
-	Min = 3,
-	Max = 30,
-	Rounding = 1,
-	Compact = true,
-	Callback = function(Value)
-		CombatSettings.CameraDistance = Value
-	end
-})
-
-CombatGroup:AddSlider("CameraHeight", {
-	Text = "Camera Height",
-	Default = 4,
-	Min = 0,
-	Max = 15,
-	Rounding = 1,
-	Compact = true,
-	Callback = function(Value)
-		CombatSettings.CameraHeight = Value
-	end
-})
-
-CombatGroup:AddSlider("CameraSmoothness", {
-	Text = "Camera Smoothness",
-	Default = 18,
+CombatGroup:AddSlider("FOVThickness", {
+	Text = "FOV Thickness",
+	Default = 2,
 	Min = 1,
-	Max = 100,
+	Max = 6,
 	Rounding = 0,
 	Compact = true,
 	Callback = function(Value)
-		CombatSettings.CameraSmoothness = Value / 100
+		CombatSettings.FOVThickness = Value
+		FOVStroke.Thickness = Value
 	end
 })
 
-CombatGroup:AddColorPicker("CombatFOVColor", {
+CombatGroup:AddLabel("FOV Color"):AddColorPicker("CombatFOVColor", {
 	Default = CombatSettings.FOVColor,
 	Title = "FOV Color",
+	Transparency = 0,
 	Callback = function(Value)
 		CombatSettings.FOVColor = Value
 		FOVStroke.Color = Value
 	end
 })
 
-CombatGroup:AddColorPicker("CombatTargetColor", {
+CombatGroup:AddLabel("Target Color"):AddColorPicker("CombatTargetColor", {
 	Default = CombatSettings.TargetColor,
 	Title = "Target Color",
+	Transparency = 0,
 	Callback = function(Value)
 		CombatSettings.TargetColor = Value
-		TargetMarker.BackgroundColor3 = Value
+		TargetStroke.Color = Value
 	end
 })
 
-CombatGroup:AddKeyPicker("CombatKeybind", {
+CombatGroup:AddLabel("Activation Key"):AddKeyPicker("CombatKeybind", {
 	Default = "Q",
-	Text = "Target Key",
-	Mode = "Toggle",
-	Callback = function(Value)
-		if not CombatSettings.Enabled then
-			return
-		end
-
-		CombatSettings.Targeting = Value
-
-		if not Value then
-			CombatCurrentTarget = nil
-			TargetMarker.Visible = false
-
-			CombatCamera.CameraType = Enum.CameraType.Custom
-
-			local Character = CombatLocalPlayer.Character
-			local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-
-			if Humanoid then
-				CombatCamera.CameraSubject = Humanoid
-			end
-		end
-	end
+	NoUI = false,
+	Text = "Combat Hotkey",
+	Mode = "Toggle"
 })
 
-local TargetGroup = Tabs.Combat:AddRightGroupbox("Target")
+local CombatRight = Tabs.Combat:AddRightGroupbox("Target")
 
-TargetGroup:AddDropdown("TargetPart", {
+CombatRight:AddDropdown("TargetPart", {
 	Values = {
 		"Head",
 		"HumanoidRootPart",
@@ -697,8 +646,17 @@ TargetGroup:AddDropdown("TargetPart", {
 	end
 })
 
-local function IsValidCombatTarget(Player)
-	if not Player or Player == CombatLocalPlayer then
+local CurrentTarget = nil
+
+local function IsValidTarget(Player)
+	if Player == LocalPlayer then
+		return false
+	end
+
+	if CombatSettings.TeamCheck
+		and Player.Team ~= nil
+		and LocalPlayer.Team ~= nil
+		and Player.Team == LocalPlayer.Team then
 		return false
 	end
 
@@ -709,50 +667,43 @@ local function IsValidCombatTarget(Player)
 	end
 
 	local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-
-	if not Humanoid or Humanoid.Health <= 0 then
-		return false
-	end
-
-	if CombatSettings.TeamCheck and Player.Team == CombatLocalPlayer.Team then
-		return false
-	end
-
 	local TargetPart = Character:FindFirstChild(CombatSettings.TargetPart)
 
-	if not TargetPart then
+	if not Humanoid or Humanoid.Health <= 0 or not TargetPart then
 		return false
 	end
 
-	local LocalCharacter = CombatLocalPlayer.Character
-	local LocalRoot = LocalCharacter and LocalCharacter:FindFirstChild("HumanoidRootPart")
+	local Camera = workspace.CurrentCamera
 
-	if LocalRoot then
-		local Distance = (TargetPart.Position - LocalRoot.Position).Magnitude
+	if not Camera then
+		return false
+	end
 
-		if Distance > CombatSettings.MaxDistance then
-			return false
-		end
+	local Distance = (
+		TargetPart.Position - Camera.CFrame.Position
+	).Magnitude
+
+	if Distance > CombatSettings.MaxDistance then
+		return false
 	end
 
 	if CombatSettings.VisibleCheck then
-		local Origin = CombatCamera.CFrame.Position
-		local Direction = TargetPart.Position - Origin
-
 		local Params = RaycastParams.new()
 		Params.FilterType = Enum.RaycastFilterType.Exclude
 		Params.FilterDescendantsInstances = {
-			LocalCharacter,
-			Character
+			LocalPlayer.Character
 		}
 
+		local Direction =
+			TargetPart.Position - Camera.CFrame.Position
+
 		local Result = workspace:Raycast(
-			Origin,
+			Camera.CFrame.Position,
 			Direction,
 			Params
 		)
 
-		if Result then
+		if Result and not Result.Instance:IsDescendantOf(Character) then
 			return false
 		end
 	end
@@ -760,321 +711,316 @@ local function IsValidCombatTarget(Player)
 	return true
 end
 
-local function GetClosestCombatTarget()
-	local Center = CombatCamera.ViewportSize / 2
-	local ClosestPlayer = nil
-	local ClosestDistance = CombatSettings.FOV
+local function GetClosestTarget()
+	local Camera = workspace.CurrentCamera
 
-	for _, Player in ipairs(CombatPlayers:GetPlayers()) do
-		if IsValidCombatTarget(Player) then
+	if not Camera then
+		return nil
+	end
+
+	local MousePosition = UserInputService:GetMouseLocation()
+
+	local BestPlayer = nil
+	local BestDistance = CombatSettings.FOV
+
+	for _, Player in ipairs(Players:GetPlayers()) do
+		if IsValidTarget(Player) then
 			local Character = Player.Character
-			local TargetPart = Character and Character:FindFirstChild(CombatSettings.TargetPart)
+			local TargetPart = Character:FindFirstChild(
+				CombatSettings.TargetPart
+			)
 
-			if TargetPart then
-				local ScreenPosition, OnScreen =
-					CombatCamera:WorldToViewportPoint(TargetPart.Position)
+			local ScreenPosition, OnScreen =
+				Camera:WorldToViewportPoint(TargetPart.Position)
 
-				if OnScreen then
-					local Distance = (
-						Vector2.new(ScreenPosition.X, ScreenPosition.Y)
-						- Center
-					).Magnitude
+			if OnScreen then
+				local ScreenDistance = (
+					Vector2.new(
+						ScreenPosition.X,
+						ScreenPosition.Y
+					) - MousePosition
+				).Magnitude
 
-					if Distance < ClosestDistance then
-						ClosestDistance = Distance
-						ClosestPlayer = Player
-					end
+				if ScreenDistance < BestDistance then
+					BestDistance = ScreenDistance
+					BestPlayer = Player
 				end
 			end
 		end
 	end
 
-	return ClosestPlayer
+	return BestPlayer
 end
 
-local function ClearCombatTarget()
-	CombatCurrentTarget = nil
-	TargetMarker.Visible = false
-end
+Options.CombatKeybind:OnChanged(function()
+	local Key = Options.CombatKeybind.Value
 
-local function UpdateTargetMarker()
-	if not CombatSettings.TargetMarker then
-		TargetMarker.Visible = false
-		return
-	end
-
-	if not CombatCurrentTarget then
-		TargetMarker.Visible = false
-		return
-	end
-
-	local Character = CombatCurrentTarget.Character
-
-	if not Character then
-		TargetMarker.Visible = false
-		return
-	end
-
-	local TargetPart = Character:FindFirstChild(CombatSettings.TargetPart)
-
-	if not TargetPart then
-		TargetMarker.Visible = false
-		return
-	end
-
-	local ScreenPosition, OnScreen =
-		CombatCamera:WorldToViewportPoint(TargetPart.Position)
-
-	if OnScreen then
-		TargetMarker.Position =
-			UDim2.fromOffset(ScreenPosition.X, ScreenPosition.Y)
-
-		TargetMarker.Visible = true
-	else
-		TargetMarker.Visible = false
-	end
-end
-
-local function ResetCamera()
-	CombatCamera.CameraType = Enum.CameraType.Custom
-
-	local Character = CombatLocalPlayer.Character
-	local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-
-	if Humanoid then
-		CombatCamera.CameraSubject = Humanoid
-	end
-end
-
-CombatUserInputService.InputBegan:Connect(function(Input, GameProcessed)
-	if GameProcessed then
-		return
-	end
-
-	if Input.KeyCode ~= Enum.KeyCode.Q then
-		return
-	end
-
-	if not CombatSettings.Enabled then
-		return
-	end
-
-	CombatSettings.Targeting = not CombatSettings.Targeting
-
-	if not CombatSettings.Targeting then
-		ClearCombatTarget()
-		ResetCamera()
+	if Key then
+		CombatSettings.ActivationKey = Key
 	end
 end)
 
-CombatRunService:BindToRenderStep(
-	"VELTRIX_CombatCamera",
-	Enum.RenderPriority.Camera.Value + 1,
-	function()
-		FOVCircle.Visible = CombatSettings.ShowFOV
+UserInputService.InputBegan:Connect(function(Input, Processed)
+	if Processed then
+		return
+	end
 
-		if not CombatSettings.Enabled then
-			return
-		end
+	local Key = Options.CombatKeybind.Value
+
+	if Key and Input.KeyCode == Key then
+		CombatSettings.Targeting =
+			not CombatSettings.Targeting
 
 		if not CombatSettings.Targeting then
-			return
+			CurrentTarget = nil
+			TargetMarker.Visible = false
 		end
-
-		if not CombatCurrentTarget
-			or not IsValidCombatTarget(CombatCurrentTarget)
-			or CombatSettings.AutoSwitch then
-
-			local NewTarget = GetClosestCombatTarget()
-
-			if NewTarget then
-				CombatCurrentTarget = NewTarget
-			elseif not CombatCurrentTarget then
-				TargetMarker.Visible = false
-				return
-			end
-		end
-
-		if not CombatCurrentTarget then
-			return
-		end
-
-		local Character = CombatCurrentTarget.Character
-
-		if not Character then
-			ClearCombatTarget()
-			return
-		end
-
-		local RootPart = Character:FindFirstChild("HumanoidRootPart")
-		local TargetPart = Character:FindFirstChild(CombatSettings.TargetPart)
-
-		if not RootPart or not TargetPart then
-			ClearCombatTarget()
-			return
-		end
-
-		CombatCamera.CameraType = Enum.CameraType.Scriptable
-
-		local TargetPosition =
-			TargetPart.Position
-			+ Vector3.new(0, CombatSettings.CameraLookHeight, 0)
-
-		local CameraPosition =
-			RootPart.Position
-			- RootPart.CFrame.LookVector * CombatSettings.CameraDistance
-			+ Vector3.new(0, CombatSettings.CameraHeight, 0)
-
-		local DesiredCamera =
-			CFrame.lookAt(
-				CameraPosition,
-				TargetPosition
-			)
-
-		local Smooth =
-			math.clamp(
-				CombatSettings.CameraSmoothness,
-				0.01,
-				1
-			)
-
-		CombatCamera.CFrame =
-			CombatCamera.CFrame:Lerp(
-				DesiredCamera,
-				Smooth
-			)
-
-		UpdateTargetMarker()
-	end
-)
-
-CombatPlayers.PlayerRemoving:Connect(function(Player)
-	if Player == CombatCurrentTarget then
-		ClearCombatTarget()
-		ResetCamera()
 	end
 end)
 
-CombatLocalPlayer.CharacterAdded:Connect(function()
-	task.wait(0.5)
+RunService.RenderStepped:Connect(function()
+	local Camera = workspace.CurrentCamera
 
-	if not CombatSettings.Targeting then
-		ResetCamera()
+	if not Camera then
+		return
+	end
+
+	local MousePosition = UserInputService:GetMouseLocation()
+
+	FOV.Position = UDim2.fromOffset(
+		MousePosition.X,
+		MousePosition.Y
+	)
+
+	FOV.Size = UDim2.fromOffset(
+		CombatSettings.FOV * 2,
+		CombatSettings.FOV * 2
+	)
+
+	FOVStroke.Color = CombatSettings.FOVColor
+	FOVStroke.Thickness = CombatSettings.FOVThickness
+	FOVStroke.Transparency = CombatSettings.FOVTransparency
+
+	FOV.Visible =
+		CombatSettings.Enabled
+		and CombatSettings.ShowFOV
+
+	if not CombatSettings.Enabled
+		or not CombatSettings.Targeting then
+
+		CurrentTarget = nil
+		TargetMarker.Visible = false
+		return
+	end
+
+	if not CurrentTarget
+		or not IsValidTarget(CurrentTarget)
+		or CombatSettings.AutoSwitch then
+
+		CurrentTarget = GetClosestTarget()
+	end
+
+	if CurrentTarget and IsValidTarget(CurrentTarget) then
+		local Character = CurrentTarget.Character
+		local TargetPart = Character:FindFirstChild(
+			CombatSettings.TargetPart
+		)
+
+		if TargetPart then
+			local ScreenPosition, OnScreen =
+				Camera:WorldToViewportPoint(TargetPart.Position)
+
+			if OnScreen then
+				TargetMarker.Position = UDim2.fromOffset(
+					ScreenPosition.X,
+					ScreenPosition.Y
+				)
+
+				TargetMarker.Visible =
+					CombatSettings.TargetMarker
+			else
+				TargetMarker.Visible = false
+			end
+		end
+	else
+		TargetMarker.Visible = false
 	end
 end)
 
 -- Main Tab 
+local Players = game:GetService("Players")
+
+local LocalPlayer = Players.LocalPlayer
+
 local MainTab = Tabs.Main
-local MainPlayer = Players.LocalPlayer
 
 local ProfileGroup = MainTab:AddLeftGroupbox("Profile")
 
-ProfileGroup:AddLabel("TRIX PROFILE")
+local ProfileAvatar = Instance.new("ImageLabel")
+ProfileAvatar.Name = "ProfileAvatar"
+ProfileAvatar.Size = UDim2.fromOffset(72, 72)
+ProfileAvatar.Position = UDim2.fromOffset(8, 8)
+ProfileAvatar.BackgroundTransparency = 1
+ProfileAvatar.BorderSizePixel = 0
+ProfileAvatar.ScaleType = Enum.ScaleType.Crop
+ProfileAvatar.ZIndex = 10
+
+local AvatarCorner = Instance.new("UICorner")
+AvatarCorner.CornerRadius = UDim.new(0, 8)
+AvatarCorner.Parent = ProfileAvatar
+
+local AvatarStroke = Instance.new("UIStroke")
+AvatarStroke.Thickness = 2
+AvatarStroke.Color = Color3.fromRGB(80, 140, 255)
+AvatarStroke.Transparency = 0
+AvatarStroke.Parent = ProfileAvatar
+
+local AvatarSuccess, AvatarImage = pcall(function()
+	return Players:GetUserThumbnailAsync(
+		LocalPlayer.UserId,
+		Enum.ThumbnailType.HeadShot,
+		Enum.ThumbnailSize.Size150x150
+	)
+end)
+
+if AvatarSuccess and AvatarImage then
+	ProfileAvatar.Image = AvatarImage
+end
+
+ProfileAvatar.Parent = ProfileGroup.Container
+
+ProfileGroup:AddLabel("Welcome, " .. LocalPlayer.DisplayName)
+ProfileGroup:AddLabel("@" .. LocalPlayer.Name)
+ProfileGroup:AddLabel("User ID: " .. tostring(LocalPlayer.UserId))
+ProfileGroup:AddLabel("Account age: " .. tostring(LocalPlayer.AccountAge) .. " days")
+
 ProfileGroup:AddDivider()
-ProfileGroup:AddLabel("Welcome, " .. MainPlayer.DisplayName)
-ProfileGroup:AddLabel("@" .. MainPlayer.Name)
-ProfileGroup:AddLabel("User ID: " .. tostring(MainPlayer.UserId))
-ProfileGroup:AddLabel("Account age: " .. tostring(MainPlayer.AccountAge) .. " days")
-ProfileGroup:AddDivider()
+
 ProfileGroup:AddLabel("Status: Ready")
 ProfileGroup:AddLabel("VELTRIX Member")
+
 
 local DashboardGroup = MainTab:AddLeftGroupbox("Dashboard")
 
 DashboardGroup:AddLabel("VELTRIX is ready.")
 DashboardGroup:AddLabel("Use the tabs to configure your settings.")
+
 DashboardGroup:AddDivider()
 
 DashboardGroup:AddButton("Open ESP", function()
-    Library.SelectedTab = Tabs.Esp
+	if Tabs.Esp then
+		Library.SelectedTab = Tabs.Esp
+	end
 end)
 
 DashboardGroup:AddButton("Open Combat", function()
-    Library.SelectedTab = Tabs.Combat
+	if Tabs.Combat then
+		Library.SelectedTab = Tabs.Combat
+	end
 end)
 
 DashboardGroup:AddDivider()
+
 DashboardGroup:AddLabel("ESP: Ready")
 DashboardGroup:AddLabel("Combat: Ready")
 DashboardGroup:AddLabel("UI: Ready")
 
+
 local QuickGroup = MainTab:AddRightGroupbox("Quick Settings")
 
 QuickGroup:AddToggle("QuickESP", {
-    Text = "ESP",
-    Default = false,
-    Callback = function(Value)
-        if Toggles.ESPEnabled then
-            Toggles.ESPEnabled:SetValue(Value)
-        end
-    end
+	Text = "ESP",
+	Default = false,
+	Callback = function(Value)
+		if Options.ESP then
+			Options.ESP:SetValue(Value)
+		end
+	end
 })
 
 QuickGroup:AddToggle("QuickCombat", {
-    Text = "Combat",
-    Default = false,
-    Callback = function(Value)
-        if Toggles.CombatAssist then
-            Toggles.CombatAssist:SetValue(Value)
-        end
-    end
+	Text = "Combat",
+	Default = false,
+	Callback = function(Value)
+		if Options.CombatAssist then
+			Options.CombatAssist:SetValue(Value)
+		end
+	end
 })
 
 QuickGroup:AddToggle("QuickFOV", {
-    Text = "FOV",
-    Default = true,
-    Callback = function(Value)
-        if Toggles.ShowFOV then
-            Toggles.ShowFOV:SetValue(Value)
-        end
-    end
+	Text = "FOV",
+	Default = true,
+	Callback = function(Value)
+		if Options.ShowFOV then
+			Options.ShowFOV:SetValue(Value)
+		end
+	end
 })
 
 QuickGroup:AddDivider()
 
 QuickGroup:AddButton("Reset Settings", function()
-    if Toggles.QuickESP then
-        Toggles.QuickESP:SetValue(false)
-    end
+	if Options.QuickESP then
+		Options.QuickESP:SetValue(false)
+	end
 
-    if Toggles.QuickCombat then
-        Toggles.QuickCombat:SetValue(false)
-    end
+	if Options.QuickCombat then
+		Options.QuickCombat:SetValue(false)
+	end
 
-    if Toggles.QuickFOV then
-        Toggles.QuickFOV:SetValue(true)
-    end
+	if Options.QuickFOV then
+		Options.QuickFOV:SetValue(true)
+	end
 end)
+
 
 local PremiumGroup = MainTab:AddRightGroupbox("Premium")
 
 PremiumGroup:AddLabel("VELTRIX Premium")
 PremiumGroup:AddLabel("Premium features are")
 PremiumGroup:AddLabel("coming soon.")
+
 PremiumGroup:AddDivider()
+
 PremiumGroup:AddLabel("Premium Status: Free")
 
 PremiumGroup:AddButton("Premium Info", function()
-    Library:Notify("Premium features are coming soon.", 3)
+	Library:Notify("Premium features are coming soon.", 3)
 end)
+
 
 local InfoGroup = MainTab:AddLeftGroupbox("Information")
 
 InfoGroup:AddLabel("Menu: VELTRIX")
-InfoGroup:AddLabel("User: " .. MainPlayer.DisplayName)
+InfoGroup:AddLabel("User: " .. LocalPlayer.DisplayName)
 InfoGroup:AddLabel("Version: 1.0")
+
+InfoGroup:AddDivider()
+
 
 local SessionGroup = MainTab:AddRightGroupbox("Session")
 
 SessionGroup:AddLabel("Player")
-SessionGroup:AddLabel(MainPlayer.DisplayName)
+SessionGroup:AddLabel(LocalPlayer.DisplayName)
+
 SessionGroup:AddDivider()
 
 SessionGroup:AddLabel("Username")
-SessionGroup:AddLabel("@" .. MainPlayer.Name)
+SessionGroup:AddLabel("@" .. LocalPlayer.Name)
+
 SessionGroup:AddDivider()
 
 SessionGroup:AddLabel("User ID")
-SessionGroup:AddLabel(tostring(MainPlayer.UserId))
+SessionGroup:AddLabel(tostring(LocalPlayer.UserId))
+
+-- Setup theme/save managers
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+ThemeManager:SetFolder('LinoriaExample')
+SaveManager:SetFolder('LinoriaExample/save')
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
+SaveManager:BuildConfigSection(Tabs['UI Settings'])
+SaveManager:LoadAutoloadConfig()
 
 print('UI loaded successfully! Esp box removed from Main tab.')
