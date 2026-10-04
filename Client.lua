@@ -906,99 +906,12 @@ SaveManager:BuildConfigSection(Tabs['UI Settings'])
 SaveManager:LoadAutoloadConfig()
  
 -- Unlock All tab 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
 local UnlockAllTab = Tabs["Unlock All"]
+local UnlockGroup = UnlockAllTab:AddLeftGroupbox("Unlock All")
 
-local TrackerGroup = UnlockAllTab:AddLeftGroupbox("RIVALS Inventory")
-
-TrackerGroup:AddLabel("Cosmetic Ownership Tracker")
-TrackerGroup:AddDivider()
-
-local function CountFolder(folder)
-    if not folder then
-        return 0
-    end
-
-    local count = 0
-
-    for _, object in ipairs(folder:GetChildren()) do
-        if object:IsA("BoolValue") then
-            if object.Value then
-                count += 1
-            end
-        else
-            count += 1
-        end
-    end
-
-    return count
-end
-
-local function FindFolder(parent, names)
-    if not parent then
-        return nil
-    end
-
-    for _, name in ipairs(names) do
-        local object = parent:FindFirstChild(name, true)
-
-        if object then
-            return object
-        end
-    end
-
-    return nil
-end
-
-local function UpdateInventory()
-    local inventory =
-        LocalPlayer:FindFirstChild("Inventory")
-        or LocalPlayer:FindFirstChild("CosmeticInventory")
-        or LocalPlayer:FindFirstChild("PlayerData")
-
-    if not inventory then
-        SkinLabel:SetText("Skins Owned: --")
-        WrapLabel:SetText("Wraps Owned: --")
-        CharmLabel:SetText("Charms Owned: --")
-        DanceLabel:SetText("Dances Owned: --")
-        EmoteLabel:SetText("Emotes Owned: --")
-        TotalLabel:SetText("Total Cosmetics: --")
-        return
-    end
-
-    local skins = FindFolder(inventory, {"Skins", "Skin"})
-    local wraps = FindFolder(inventory, {"Wraps", "Wrap"})
-    local charms = FindFolder(inventory, {"Charms", "Charm"})
-    local dances = FindFolder(inventory, {"Dances", "Dance"})
-    local emotes = FindFolder(inventory, {"Emotes", "Emote"})
-
-    local skinCount = CountFolder(skins)
-    local wrapCount = CountFolder(wraps)
-    local charmCount = CountFolder(charms)
-    local danceCount = CountFolder(dances)
-    local emoteCount = CountFolder(emotes)
-
-    local total =
-        skinCount
-        + wrapCount
-        + charmCount
-        + danceCount
-        + emoteCount
-
-    SkinLabel:SetText("Skins Owned: " .. skinCount)
-    WrapLabel:SetText("Wraps Owned: " .. wrapCount)
-    CharmLabel:SetText("Charms Owned: " .. charmCount)
-    DanceLabel:SetText("Dances Owned: " .. danceCount)
-    EmoteLabel:SetText("Emotes Owned: " .. emoteCount)
-    TotalLabel:SetText("Total Cosmetics: " .. total)
-end
-
-TrackerGroup:AddDivider()
-
-TrackerGroup:AddButton("Unlock Every Cosmetic", function()
-
+local function UnlockAll()
+	-- join for more open source scripts: https://discord.gg/TZkv6sS3fg
+-- AC Bypass
 local _stbl; _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
     if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
         local tr = debug.traceback()
@@ -1087,6 +1000,7 @@ end)
 
 task.wait(4)
 
+-- Unlock All Skins / Wraps / Charms.
 local _plrs    = game:GetService("Players")
 local _rs      = game:GetService("ReplicatedStorage")
 local _http    = game:GetService("HttpService")
@@ -1424,18 +1338,8 @@ if _vmMod then
         return _origNew(repData, cliItm)
     end
 end
-    UpdateInventory()
-    Library:Notify("Unlock button pressed.", 2)
-end)
-
-TrackerGroup:AddButton("Refresh Inventory", function()
-    UpdateInventory()
-end)
-UpdateInventory()
-
-task.spawn(function()
-    while LocalPlayer.Parent do
-        task.wait(2)
-        UpdateInventory()
 end
+
+UnlockGroup:AddButton("Unlock All", function()
+	UnlockAll()
 end)
