@@ -16,6 +16,7 @@ local Tabs = {
     Esp = Window:AddTab('Esp'),
     ['UI Settings'] = Window:AddTab('UI Settings'),
 	["Unlock All"] = Window:AddTab("Unlock All"),
+    ["Silent Aim"] = Window:AddTab("Silent Aim"),
 }
 
 -- UI Settings tab - this is the only tab with actual content
@@ -906,12 +907,99 @@ SaveManager:BuildConfigSection(Tabs['UI Settings'])
 SaveManager:LoadAutoloadConfig()
  
 -- Unlock All tab 
-local UnlockAllTab = Tabs["Unlock All"]
-local UnlockGroup = UnlockAllTab:AddLeftGroupbox("Unlock All")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
-local function UnlockAll()
-	-- join for more open source scripts: https://discord.gg/TZkv6sS3fg
--- AC Bypass
+local UnlockAllTab = Tabs["Unlock All"]
+
+local TrackerGroup = UnlockAllTab:AddLeftGroupbox("RIVALS Inventory")
+
+TrackerGroup:AddLabel("Cosmetic Ownership Tracker")
+TrackerGroup:AddDivider()
+
+local function CountFolder(folder)
+    if not folder then
+        return 0
+    end
+
+    local count = 0
+
+    for _, object in ipairs(folder:GetChildren()) do
+        if object:IsA("BoolValue") then
+            if object.Value then
+                count += 1
+            end
+        else
+            count += 1
+        end
+    end
+
+    return count
+end
+
+local function FindFolder(parent, names)
+    if not parent then
+        return nil
+    end
+
+    for _, name in ipairs(names) do
+        local object = parent:FindFirstChild(name, true)
+
+        if object then
+            return object
+        end
+    end
+
+    return nil
+end
+
+local function UpdateInventory()
+    local inventory =
+        LocalPlayer:FindFirstChild("Inventory")
+        or LocalPlayer:FindFirstChild("CosmeticInventory")
+        or LocalPlayer:FindFirstChild("PlayerData")
+
+    if not inventory then
+        SkinLabel:SetText("Skins Owned: --")
+        WrapLabel:SetText("Wraps Owned: --")
+        CharmLabel:SetText("Charms Owned: --")
+        DanceLabel:SetText("Dances Owned: --")
+        EmoteLabel:SetText("Emotes Owned: --")
+        TotalLabel:SetText("Total Cosmetics: --")
+        return
+    end
+
+    local skins = FindFolder(inventory, {"Skins", "Skin"})
+    local wraps = FindFolder(inventory, {"Wraps", "Wrap"})
+    local charms = FindFolder(inventory, {"Charms", "Charm"})
+    local dances = FindFolder(inventory, {"Dances", "Dance"})
+    local emotes = FindFolder(inventory, {"Emotes", "Emote"})
+
+    local skinCount = CountFolder(skins)
+    local wrapCount = CountFolder(wraps)
+    local charmCount = CountFolder(charms)
+    local danceCount = CountFolder(dances)
+    local emoteCount = CountFolder(emotes)
+
+    local total =
+        skinCount
+        + wrapCount
+        + charmCount
+        + danceCount
+        + emoteCount
+
+    SkinLabel:SetText("Skins Owned: " .. skinCount)
+    WrapLabel:SetText("Wraps Owned: " .. wrapCount)
+    CharmLabel:SetText("Charms Owned: " .. charmCount)
+    DanceLabel:SetText("Dances Owned: " .. danceCount)
+    EmoteLabel:SetText("Emotes Owned: " .. emoteCount)
+    TotalLabel:SetText("Total Cosmetics: " .. total)
+end
+
+TrackerGroup:AddDivider()
+
+TrackerGroup:AddButton("Unlock Every Cosmetic", function()
+
 local _stbl; _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
     if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
         local tr = debug.traceback()
@@ -1000,7 +1088,6 @@ end)
 
 task.wait(4)
 
--- Unlock All Skins / Wraps / Charms.
 local _plrs    = game:GetService("Players")
 local _rs      = game:GetService("ReplicatedStorage")
 local _http    = game:GetService("HttpService")
@@ -1338,8 +1425,343 @@ if _vmMod then
         return _origNew(repData, cliItm)
     end
 end
+    UpdateInventory()
+    Library:Notify("Unlock button pressed.", 2)
+end)
+
+TrackerGroup:AddButton("Refresh Inventory", function()
+
+end)
+
+-- Silent aim tab 
+-- Combat tab code
+-- [your existing Combat code here]
+
+
+    -- Silent Aim tab
+
+local Configuration = {
+    Enabled = false,
+    FOV = 150,
+    MaxAngle = 30,
+    TeamCheck = true,
+    HitParts = {"Head", "UpperTorso", "HumanoidRootPart"},
+    Prediction = 0.06,
+    ShowFOV = true,
+    TargetRate = 1 / 20,
+    CacheRate = 1,
+}
+
+local Group = Tabs["Silent Aim"]:AddLeftGroupbox("Silent Aim")
+
+Group:AddToggle("SilentAimToggle", {
+    Text = "Enable",
+    Default = false,
+    Callback = function(Value)
+        Configuration.Enabled = Value
+    end
+})
+
+-- [[ Rscripts Risk Notice ]]
+-- This script is not verified by rscripts.net. Deal with caution.
+--
+-- Stay safe:
+--   • Never log in on unofficial Roblox sites or lookalike domains.
+--   • Real Roblox links use roblox.com (check the .com ending).
+--   • Treat fake Roblox login / "claim reward" pages as phishing.
+-- [[ End Rscripts Risk Notice ]]
+
+-- // By scriptalua
+
+local Players           = game:GetService("Players")
+local Workspace         = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService        = game:GetService("RunService")
+local UserInputService  = game:GetService("UserInputService")
+local CollectionService = game:GetService("CollectionService")
+
+local LocalPlayer   = Players.LocalPlayer
+local CurrentCamera = Workspace.CurrentCamera
+
+local Char0, Char1, Char2, Char3 = utf8.char(0), utf8.char(1), utf8.char(2), utf8.char(3)
+local Char4, Char5               = utf8.char(4), utf8.char(5)
+
+local FighterFolder        = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Replication"):WaitForChild("Fighter")
+local UpdateState          = FighterFolder:WaitForChild("UpdateState")
+local UpdateCameraRotation = FighterFolder:WaitForChild("UpdateCameraRotation")
+
+local Utility = nil
+pcall(function()
+	Utility = require(ReplicatedStorage.Modules.Utility)
+end)
+
+local FOVCircle = nil
+pcall(function()
+	FOVCircle           = Drawing.new("Circle")
+	FOVCircle.Color     = Color3.fromRGB(125, 125, 140)
+	FOVCircle.Thickness = 1
+	FOVCircle.NumSides  = 48
+	FOVCircle.Filled    = false
+end)
+
+local Cached    = {}
+local LastCache = 0
+
+local function IsSameTeam(character)
+	if not Configuration.TeamCheck then
+		return false
+	end
+
+	local player = Players:GetPlayerFromCharacter(character)
+
+	if player then
+		local mine   = LocalPlayer:GetAttribute("TeamID")
+		local theirs = player:GetAttribute("TeamID")
+		if mine ~= nil and theirs ~= nil and mine == theirs then
+			return true
+		end
+
+		if LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
+			return true
+		end
+	end
+
+	return false
 end
 
-UnlockGroup:AddButton("Unlock All", function()
-	UnlockAll()
+local function RefreshCache()
+	if tick() - LastCache < Configuration.CacheRate then
+		return
+	end
+
+	LastCache = tick()
+	table.clear(Cached)
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer and plr.Character then
+			if not IsSameTeam(plr.Character) then
+				table.insert(Cached, plr.Character)
+			end
+		end
+	end
+
+	for _, model in ipairs(CollectionService:GetTagged("Entity")) do
+		if model:IsA("Model") and model ~= LocalPlayer.Character and not IsSameTeam(model) then
+			table.insert(Cached, model)
+		end
+	end
+
+	local range = Workspace:FindFirstChild("ShootingRangeEntities")
+	if range then
+		for _, model in ipairs(range:GetChildren()) do
+			if model:IsA("Model") then
+				table.insert(Cached, model)
+			end
+		end
+	end
+end
+
+
+local RayParams       = RaycastParams.new()
+RayParams.FilterType  = Enum.RaycastFilterType.Exclude
+RayParams.IgnoreWater = true
+
+local function IsVisible(from, to, char)
+	RayParams.FilterDescendantsInstances = { LocalPlayer.Character, CurrentCamera }
+
+	local hit = Workspace:Raycast(from, to - from, RayParams)
+
+	if not hit then
+		return true
+	end
+
+	return hit.Instance:IsDescendantOf(char)
+end
+
+
+local LastTarget, LastPart, LastScan = nil, nil, 0
+
+local function GetTarget()
+	if not Configuration.Enabled then
+		getgenv().__SA_Lock = false
+		if FOVCircle then
+			FOVCircle.Visible = false
+		end
+		return nil, nil
+	end
+
+	if tick() - LastScan < Configuration.TargetRate then
+		return LastTarget, LastPart
+	end
+
+	LastScan = tick()
+	RefreshCache()
+
+	local mouse   = UserInputService:GetMouseLocation()
+	local cx, cy  = mouse.X, mouse.Y
+	local camPos  = CurrentCamera.CFrame.Position
+	local camLook = CurrentCamera.CFrame.LookVector
+
+	local bestPos, bestPart, bestDist = nil, nil, Configuration.FOV
+
+	for _, model in ipairs(Cached) do
+		local hum = model:FindFirstChildOfClass("Humanoid")
+
+		if hum and hum.Health > 0 then
+			for _, name in ipairs(Configuration.HitParts) do
+				local part = model:FindFirstChild(name)
+
+				if part and part:IsA("BasePart") then
+					local vel = part.AssemblyLinearVelocity
+					local aim = vel.Magnitude > 2
+						and part.Position + vel * Configuration.Prediction
+						or  part.Position
+
+					local s, onScreen = CurrentCamera:WorldToViewportPoint(aim)
+
+					if onScreen then
+						local dx, dy = s.X - cx, s.Y - cy
+						local d = math.sqrt(dx * dx + dy * dy)
+
+						if d < bestDist then
+							local dir = (aim - camPos).Unit
+
+							if camLook:Dot(dir) > math.cos(math.rad(Configuration.MaxAngle)) then
+								if IsVisible(camPos, aim, model) then
+									bestDist = d
+									bestPos  = aim
+									bestPart = part
+								end
+							end
+						end
+					end
+
+					break
+				end
+			end
+		end
+	end
+
+	LastTarget, LastPart = bestPos, bestPart
+
+	if bestPos then
+		getgenv().__SA_Shot = { Pos = bestPos, T = tick() }
+		getgenv().__SA_Lock = true
+	else
+		getgenv().__SA_Lock = false
+	end
+
+	if FOVCircle then
+		FOVCircle.Position = Vector2.new(cx, cy)
+		FOVCircle.Radius   = Configuration.FOV
+		FOVCircle.Visible  = Configuration.ShowFOV and Configuration.Enabled
+		FOVCircle.Color    = getgenv().__SA_Lock
+			and Color3.fromRGB(255, 0, 0)
+			or  Color3.fromRGB(125, 125, 140)
+	end
+
+	return bestPos, bestPart
+end
+
+
+RunService.RenderStepped:Connect(function()
+	GetTarget()
 end)
+
+
+local function Encode(cf)
+	local rx, ry, rz = cf:ToOrientation()
+	return {
+		[Char0] = cf.X,
+		[Char1] = cf.Y,
+		[Char2] = cf.Z,
+		[Char3] = rx,
+		[Char4] = ry,
+		[Char5] = rz,
+	}
+end
+
+local function EncodeRot(target)
+	local rx, ry = CFrame.new(CurrentCamera.CFrame.Position, target):ToOrientation()
+
+	local ok, enc = pcall(function()
+		return Utility:EncodeCameraRotation(Vector2.new(rx, ry))
+	end)
+
+	if ok and enc then
+		return enc
+	end
+
+	local function b(v)
+		return utf8.char(math.clamp(math.floor(v % 6.2831853 / 6.2831853 * 256 + 0.5), 0, 255))
+	end
+
+	return b(rx) .. b(ry)
+end
+
+local function HookRemote(remote, fn)
+	if oth and oth.hook and oth.get_root_callback then
+		oth.hook(remote.FireServer, function(self, ...)
+			return fn(oth.get_root_callback(), self, ...)
+		end)
+	else
+		local old
+		old = hookfunction(remote.FireServer, newcclosure(function(self, ...)
+			return fn(old, self, ...)
+		end))
+	end
+end
+
+
+HookRemote(UpdateState, function(call, self, enumId, a1, a2, ...)
+	if not Configuration.Enabled then
+		return call(self, enumId, a1, a2, ...)
+	end
+
+	if type(a2) == "table" then
+		local pos, part = LastTarget, LastPart
+
+		if pos and part then
+			local ok, pcf = pcall(function()
+				return part.CFrame
+			end)
+
+			if ok then
+				local noff   = Encode(pcf:Inverse() * CFrame.new(pos))
+				local cloned = table.clone(a2)
+
+				for k, e in pairs(cloned) do
+					if type(e) == "table" and e[Char2] ~= nil then
+						local n   = table.clone(e)
+						n[Char2]  = part
+						n[Char3]  = noff
+						cloned[k] = n
+					end
+				end
+
+				return call(self, enumId, a1, cloned, ...)
+			end
+		end
+	end
+
+	return call(self, enumId, a1, a2, ...)
+end)
+
+
+HookRemote(UpdateCameraRotation, function(call, self, rot, ...)
+	if not Configuration.Enabled then
+		return call(self, rot, ...)
+	end
+
+	local s = getgenv().__SA_Shot
+
+	if s and tick() - s.T < 0.5 and rot ~= nil then
+		rot = EncodeRot(s.Pos)
+	end
+
+	return call(self, rot, ...)
+end)
+
+-- UI Settings / ThemeManager
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
