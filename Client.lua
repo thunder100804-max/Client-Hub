@@ -1,4 +1,4 @@
--- VYX Hub v11.0
+-- VYX Hub v6.0 — Split Combat Windows + Neon Purple
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
@@ -18,12 +18,10 @@ local Stats = game:GetService("Stats")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local SoundService = game:GetService("SoundService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local NEON = Color3.fromRGB(170, 0, 255)
-local PINK = Color3.fromRGB(255, 40, 100)
 
 local AimEnabled, RageEnabled, AutoShoot = false, false, false
 local TargetLocked = false
@@ -31,16 +29,14 @@ local AimTargetPart, RageTargetPart = nil, nil
 local lastShotTick = 0
 
 local SpeedValue, JumpPowerValue, FlySpeed = 32, 100, 50
-local FlyConn, NoclipConn, AntiAFKConn, WSConn = nil, nil, nil, nil
+local FlyConn, NoclipConn, AntiAFKConn = nil, nil, nil
 
 local WMEnabled, WMColor, WMBG = true, NEON, Color3.fromRGB(8, 0, 15)
 local WMFPS, WMPing, WMUser = true, true, true
-
-local HitSoundEnabled, KillFeedEnabled = false, false
 local HubClosed = false
 
 local Window = Library:CreateWindow({
-    Title = "VYX", Footer = "version: V11.0", Icon = 6031097230,
+    Title = "VYX", Footer = "version: V6.0", Icon = 6031097230,
     NotifySide = "Right", ShowCustomCursor = true,
 })
 
@@ -63,7 +59,7 @@ local Tabs = {
 -- ========== COMBAT ==========
 local CT = Tabs.Combat
 local AimWin = CT:AddLeftGroupbox("Aimbot")
-local ExtWin = CT:AddLeftGroupbox("External Scripts")
+local SilWin = CT:AddLeftGroupbox("Silent Aim (external)")
 local RagWin = CT:AddRightGroupbox("Ragebot")
 local ChkWin = CT:AddRightGroupbox("Checks")
 
@@ -80,13 +76,9 @@ AimWin:AddLabel("Key"):AddKeyPicker("CombatKey", {
     Default = "MB2", NoUI = false, SyncToggleState = false, Mode = "Hold", Text = "Aim Key",
 })
 
-ExtWin:AddToggle("ExtSilent", { Text = "Enable Silent Aim (external)", Default = false })
+SilWin:AddToggle("ExtSilent", { Text = "Enable Silent Aim", Default = false })
 Toggles.ExtSilent:OnChanged(function(v)
-    if getgenv() and getgenv().SA_Config then getgenv().SA_Config.Enabled = v end
-end)
-ExtWin:AddToggle("ExtKatana", { Text = "Enable Katana / Auto-Fire (external)", Default = false })
-Toggles.ExtKatana:OnChanged(function(v)
-    if getgenv() and getgenv().Config then getgenv().Config.Enabled = v end
+    if getgenv() and getgenv().VYX_SA then getgenv().VYX_SA.Enabled = v end
 end)
 
 RagWin:AddToggle("RagEn", { Text = "Enable Ragebot", Default = false })
@@ -152,19 +144,6 @@ Options.SpeedVal:OnChanged(function()
     if Toggles.SpeedEn.Value then
         local c = LocalPlayer.Character
         if c and c:FindFirstChildOfClass("Humanoid") then c.Humanoid.WalkSpeed = SpeedValue end
-    end
-end)
-
-MoveG:AddToggle("WSJump", { Text = "Walkspeed Jump Boost", Default = false })
-Toggles.WSJump:OnChanged(function()
-    if WSConn then WSConn:Disconnect() WSConn = nil end
-    if Toggles.WSJump.Value then
-        WSConn = RunService.Heartbeat:Connect(function()
-            local c = LocalPlayer.Character
-            if c and c:FindFirstChildOfClass("Humanoid") and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                c.Humanoid.WalkSpeed = SpeedValue + 20
-            end
-        end)
     end
 end)
 
@@ -305,7 +284,7 @@ Options.WMColor:OnChanged(function() WMColor = Options.WMColor.Value end)
 WC:AddLabel("BG"):AddColorPicker("WMBG", { Default = Color3.fromRGB(8, 0, 15) })
 Options.WMBG:OnChanged(function() WMBG = Options.WMBG.Value end)
 
--- ========== Animated FOV circles (aimbot + rage) ==========
+-- ========== Animated FOV circles ==========
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 2 FOVCircle.Color = NEON FOVCircle.Filled = false
 FOVCircle.NumSides = 64 FOVCircle.Transparency = 0.5 FOVCircle.Visible = false
@@ -319,7 +298,6 @@ local RageTargetRadius, RageTargetColor = 400, Color3.fromRGB(255,100,0)
 local pulsePhase = 0
 RunService.RenderStepped:Connect(function(dt)
     pulsePhase = pulsePhase + dt * 6
-
     local curR = FOVCircle.Radius
     FOVCircle.Radius = curR + (FOVTargetRadius - curR) * math.min(dt * 12, 1)
     local c = FOVCircle.Color
@@ -333,7 +311,6 @@ RunService.RenderStepped:Connect(function(dt)
     else
         FOVCircle.Thickness = FOVCircle.Thickness + (2 - FOVCircle.Thickness) * math.min(dt * 10, 1)
     end
-
     local curRR = RageCircle.Radius
     RageCircle.Radius = curRR + (RageTargetRadius - curRR) * math.min(dt * 12, 1)
     local cr = RageCircle.Color
@@ -899,7 +876,6 @@ UnlockInfo:AddLabel("Client-side cosmetic unlock.\nHooks CosmeticLibrary, Player
 -- ========== Misc ==========
 local MiscGroup = Tabs.Misc:AddLeftGroupbox("Misc Cheats")
 local MiscGroup2 = Tabs.Misc:AddRightGroupbox("Visual Misc")
-local FeedGroup = Tabs.Misc:AddRightGroupbox("Effects")
 
 MiscGroup:AddButton("Rejoin Server", function()
     game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
@@ -948,52 +924,6 @@ end)
 MiscGroup2:AddToggle("NoShadows", { Text = "Remove Shadows", Default = false })
 Toggles.NoShadows:OnChanged(function()
     if Toggles.NoShadows.Value then Lighting.GlobalShadows = false else Lighting.GlobalShadows = true end
-end)
-
-FeedGroup:AddToggle("HitSoundEn", { Text = "Hit Sound", Default = false })
-Toggles.HitSoundEn:OnChanged(function() HitSoundEnabled = Toggles.HitSoundEn.Value end)
-FeedGroup:AddToggle("KillFeedEn", { Text = "Kill Feed", Default = false })
-Toggles.KillFeedEn:OnChanged(function() KillFeedEnabled = Toggles.KillFeedEn.Value end)
-
-local FeedGui = Instance.new("ScreenGui")
-FeedGui.Name = "VYX_Feed" FeedGui.ResetOnSpawn = false FeedGui.IgnoreGuiInset = true
-FeedGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-local FeedFrame = Instance.new("Frame")
-FeedFrame.Size = UDim2.new(0, 300, 0, 200) FeedFrame.Position = UDim2.new(1, -310, 0, 80)
-FeedFrame.BackgroundTransparency = 1 FeedFrame.Parent = FeedGui
-
-local function pushFeed(text, color)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 22) lbl.Position = UDim2.new(0, 0, 0, 178)
-    lbl.BackgroundTransparency = 0.3 lbl.BackgroundColor3 = Color3.fromRGB(8, 0, 15)
-    lbl.Text = text lbl.TextColor3 = color or NEON lbl.TextSize = 14
-    lbl.Font = Enum.Font.Code lbl.TextXAlignment = Enum.TextXAlignment.Right
-    lbl.TextStrokeTransparency = 0.4 lbl.Parent = FeedFrame
-    TweenService:Create(lbl, TweenInfo.new(2.0, Enum.EasingStyle.Quad), {
-        Position = UDim2.new(0, 0, 0, 0), TextTransparency = 1, BackgroundTransparency = 1
-    }):Play()
-    task.delay(2.1, function() lbl:Destroy() end)
-end
-
-local feedCooldown = 0
-RunService.RenderStepped:Connect(function()
-    if not TargetLocked then return end
-    local now = tick()
-    if now - feedCooldown < 0.2 then return end
-    feedCooldown = now
-    if HitSoundEnabled then
-        task.spawn(function()
-            local s = Instance.new("Sound")
-            s.SoundId = "rbxassetid://4877538726"
-            s.Volume = 2 s.Parent = SoundService s:Play()
-            task.wait(1.5) s:Destroy()
-        end)
-    end
-    if KillFeedEnabled and AimTargetPart then
-        local parent = AimTargetPart.Parent
-        local p = Players:GetPlayerFromCharacter(parent)
-        if p then pushFeed("HIT > " .. p.Name, PINK) end
-    end
 end)
 
 -- ========== UI Settings ==========
@@ -1060,364 +990,134 @@ SaveManager:BuildConfigSection(Tabs["UI Settings"])
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
 SaveManager:LoadAutoloadConfig()
 
-Library:Notify("VYX v11.0 loaded — RightShift menu / RightCtrl close", 4)
+Library:Notify("VYX v6.0 loaded — RightShift menu / RightCtrl close", 4)
 
--- VYX Rivals External Scripts
+-- VYX Silent Aim v2.0 — toggleable, press X
 
--- ==================== SILENT AIM ====================
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local CollectionService = game:GetService("CollectionService")
-local LocalPlayer = Players.LocalPlayer
-local CurrentCamera = Workspace.CurrentCamera
-
-local SA_Configuration = {
-    Enabled = false,
-    FOV = 200,
-    MaxAngle = 30,
-    TeamCheck = true,
-    HitParts = { "Head", "UpperTorso", "HumanoidRootPart" },
-    Prediction = 0.06,
-    TargetRate = 1 / 20,
-    CacheRate = 1,
+getgenv().VYX_SA = {
+    Enabled   = false,
+    HitPart   = "Head",
+    FOVRadius = 300,
+    ShowFOV   = true,
+    ToggleKey = Enum.KeyCode.X,
+    Color     = Color3.fromRGB(170, 0, 255),
 }
-getgenv().SA_Config = SA_Configuration
 
-local Char0, Char1, Char2, Char3 = utf8.char(0), utf8.char(1), utf8.char(2), utf8.char(3)
-local Char4, Char5 = utf8.char(4), utf8.char(5)
+local Config = getgenv().VYX_SA
 
-local UpdateState, UpdateCameraRotation
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players           = game:GetService("Players")
+local RunService        = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local UserInputService  = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera      = workspace.CurrentCamera
+
+local Utility, EnumLibrary, GameplayUtility
+pcall(function() Utility         = require(ReplicatedStorage.Modules.Utility) end)
+pcall(function() EnumLibrary     = require(ReplicatedStorage.Modules.EnumLibrary) end)
+pcall(function() GameplayUtility = require(ReplicatedStorage.Modules.GameplayUtility) end)
+
 pcall(function()
-    local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
-    local Rep = Remotes and Remotes:WaitForChild("Replication", 10)
-    local Fighter = Rep and Rep:WaitForChild("Fighter", 10)
-    if Fighter then
-        UpdateState = Fighter:WaitForChild("UpdateState", 10)
-        UpdateCameraRotation = Fighter:WaitForChild("UpdateCameraRotation", 10)
+    local ok, gun = pcall(require, LocalPlayer.PlayerScripts.Modules.ItemTypes.Gun)
+    if ok and gun and gun.IsFullyAiming then
+        gun.IsFullyAiming = function() return true end
     end
 end)
 
-local Utility = nil
-pcall(function()
-    Utility = require(ReplicatedStorage.Modules.Utility)
-end)
-
-local Cached, LastCache = {}, 0
-
-local function IsSameTeam(character)
-    if not SA_Configuration.TeamCheck or not character then return false end
-    local player = Players:GetPlayerFromCharacter(character)
-    if player then
-        local mine = LocalPlayer:GetAttribute("TeamID")
-        local theirs = player:GetAttribute("TeamID")
-        if mine ~= nil and theirs ~= nil and mine == theirs then return true end
-        if LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then return true end
-    end
-    return false
-end
-
-local function RefreshCache()
-    if tick() - LastCache < SA_Configuration.CacheRate then return end
-    LastCache = tick()
-    table.clear(Cached)
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and not IsSameTeam(plr.Character) then
-            table.insert(Cached, plr.Character)
-        end
-    end
-    for _, model in ipairs(CollectionService:GetTagged("Entity")) do
-        if model:IsA("Model") and model ~= LocalPlayer.Character and not IsSameTeam(model) then
-            table.insert(Cached, model)
-        end
-    end
-    local range = Workspace:FindFirstChild("ShootingRangeEntities")
-    if range then
-        for _, model in ipairs(range:GetChildren()) do
-            if model:IsA("Model") then table.insert(Cached, model) end
-        end
-    end
-end
-
-local RayParams = RaycastParams.new()
-RayParams.FilterType = Enum.RaycastFilterType.Exclude
-RayParams.IgnoreWater = true
-
-local function IsVisible(from, to, char)
-    if not LocalPlayer.Character then return true end
-    RayParams.FilterDescendantsInstances = { LocalPlayer.Character, CurrentCamera }
-    local hit = Workspace:Raycast(from, to - from, RayParams)
-    if not hit then return true end
-    return hit.Instance:IsDescendantOf(char)
-end
-
-local LastTarget, LastPart, LastScan = nil, nil, 0
-
-local function GetTarget()
-    if not SA_Configuration.Enabled then
-        getgenv().__SA_Lock = false
-        return nil, nil
-    end
-    if tick() - LastScan < SA_Configuration.TargetRate then
-        return LastTarget, LastPart
-    end
-    LastScan = tick()
-    RefreshCache()
-    local mouse = UserInputService:GetMouseLocation()
-    local cx, cy = mouse.X, mouse.Y
-    local camPos = CurrentCamera.CFrame.Position
-    local camLook = CurrentCamera.CFrame.LookVector
-    local bestPos, bestPart, bestDist = nil, nil, SA_Configuration.FOV
-    for _, model in ipairs(Cached) do
-        if model and model.Parent then
-            local hum = model:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health > 0 then
-                for _, name in ipairs(SA_Configuration.HitParts) do
-                    local part = model:FindFirstChild(name)
-                    if part and part:IsA("BasePart") then
-                        local vel = part.AssemblyLinearVelocity
-                        local aim = vel.Magnitude > 2 and part.Position + vel * SA_Configuration.Prediction or part.Position
-                        local s, onScreen = CurrentCamera:WorldToViewportPoint(aim)
-                        if onScreen then
-                            local dx, dy = s.X - cx, s.Y - cy
-                            local d = math.sqrt(dx * dx + dy * dy)
-                            if d < bestDist then
-                                local dir = (aim - camPos).Unit
-                                if camLook:Dot(dir) > math.cos(math.rad(SA_Configuration.MaxAngle)) then
-                                    if IsVisible(camPos, aim, model) then
-                                        bestDist = d
-                                        bestPos = aim
-                                        bestPart = part
-                                    end
-                                end
-                            end
-                        end
-                        break
-                    end
-                end
-            end
-        end
-    end
-    LastTarget, LastPart = bestPos, bestPart
-    if bestPos then
-        getgenv().__SA_Shot = { Pos = bestPos, T = tick() }
-        getgenv().__SA_Lock = true
-    else
-        getgenv().__SA_Lock = false
-    end
-    return bestPos, bestPart
-end
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color        = Config.Color
+FOVCircle.Thickness    = 1.5
+FOVCircle.Filled       = false
+FOVCircle.NumSides     = 64
+FOVCircle.Transparency = 0.5
+FOVCircle.Visible      = false
 
 RunService.RenderStepped:Connect(function()
-    pcall(GetTarget)
+    local vp = Camera.ViewportSize
+    FOVCircle.Position = Vector2.new(vp.X / 2, vp.Y / 2)
+    FOVCircle.Radius   = Config.FOVRadius
+    FOVCircle.Color    = Config.Color
+    FOVCircle.Visible  = Config.ShowFOV and Config.Enabled
 end)
 
-local function Encode(cf)
-    local rx, ry, rz = cf:ToOrientation()
-    return { [Char0] = cf.X, [Char1] = cf.Y, [Char2] = cf.Z, [Char3] = rx, [Char4] = ry, [Char5] = rz }
-end
-
-local function EncodeRot(target)
-    local rx, ry = CFrame.new(CurrentCamera.CFrame.Position, target):ToOrientation()
-    local ok, enc = pcall(function()
-        return Utility:EncodeCameraRotation(Vector2.new(rx, ry))
-    end)
-    if ok and enc then return enc end
-    local function b(v)
-        return utf8.char(math.clamp(math.floor(v % 6.2831853 / 6.2831853 * 256 + 0.5), 0, 255))
-    end
-    return b(rx) .. b(ry)
-end
-
-local function HookRemote(remote, fn)
-    if not remote then return end
-    pcall(function()
-        if oth and oth.hook and oth.get_root_callback then
-            oth.hook(remote.FireServer, function(self, ...)
-                return fn(oth.get_root_callback(), self, ...)
-            end)
-        else
-            local old
-            old = hookfunction(remote.FireServer, newcclosure(function(self, ...)
-                return fn(old, self, ...)
-            end))
+local function GetTarget()
+    if not Config.Enabled then return nil end
+    local vp = Camera.ViewportSize
+    local center = Vector2.new(vp.X / 2, vp.Y / 2)
+    local bestPart, bestDist = nil, Config.FOVRadius
+    for _, entity in CollectionService:GetTagged("Entity") do
+        if entity == LocalPlayer.Character then continue end
+        local part = entity:FindFirstChild(Config.HitPart, true)
+        if not part or not part:IsA("BasePart") then continue end
+        local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+        if not onScreen then continue end
+        local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+        if d < bestDist then
+            bestDist = d
+            bestPart = part
         end
-    end)
+    end
+    return bestPart
 end
 
-HookRemote(UpdateState, function(call, self, enumId, a1, a2, ...)
-    if not SA_Configuration.Enabled then
-        return call(self, enumId, a1, a2, ...)
-    end
-    if type(a2) == "table" then
-        local pos, part = LastTarget, LastPart
-        if pos and part and part.Parent then
-            local ok, pcf = pcall(function() return part.CFrame end)
-            if ok then
-                local noff = Encode(pcf:Inverse() * CFrame.new(pos))
-                local cloned = table.clone(a2)
-                for k, e in pairs(cloned) do
-                    if type(e) == "table" and e[Char2] ~= nil then
-                        local n = table.clone(e)
-                        n[Char2] = part
-                        n[Char3] = noff
-                        cloned[k] = n
-                    end
-                end
-                return call(self, enumId, a1, cloned, ...)
+local function BuildCamData(origin, part)
+    if not Utility then return nil end
+    local cf = part.CFrame
+    local data = {}
+    data[utf8.char(1)] = {
+        [utf8.char(0)] = Utility:EncodeCFrame(CFrame.lookAt(origin, part.Position)),
+        [utf8.char(1)] = Utility:EncodeCFrame(cf),
+        [utf8.char(2)] = part,
+        [utf8.char(3)] = Utility:EncodeCFrame(cf:ToObjectSpace(CFrame.new(part.Position))),
+    }
+    return data
+end
+
+if GameplayUtility and GameplayUtility.GetEntitiesFromRaycast then
+    local origGetEntities = GameplayUtility.GetEntitiesFromRaycast
+    GameplayUtility.GetEntitiesFromRaycast = function(self, envID, params, origin, dir, maxDist, ...)
+        if Config.Enabled then
+            local t = GetTarget()
+            if t then
+                local dist = (t.Position - origin).Magnitude
+                dir = (t.Position - origin).Unit
+                if dist > maxDist then maxDist = dist + 5 end
             end
         end
+        return origGetEntities(self, envID, params, origin, dir, maxDist, ...)
     end
-    return call(self, enumId, a1, a2, ...)
+end
+
+local UseItemRemote
+pcall(function()
+    local Remotes     = ReplicatedStorage:WaitForChild("Remotes", 10)
+    local Replication = Remotes and Remotes:WaitForChild("Replication", 10)
+    local Fighter     = Replication and Replication:WaitForChild("Fighter", 10)
+    UseItemRemote     = Fighter and Fighter:WaitForChild("UseItem", 10)
 end)
 
-HookRemote(UpdateCameraRotation, function(call, self, rot, ...)
-    if not SA_Configuration.Enabled then
-        return call(self, rot, ...)
-    end
-    local s = getgenv().__SA_Shot
-    if s and tick() - s.T < 0.5 and rot ~= nil then
-        rot = EncodeRot(s.Pos)
-    end
-    return call(self, rot, ...)
-end)
-
--- ==================== KATANA AUTO-FIRE ====================
-local repS = cloneref and cloneref(game:GetService("ReplicatedStorage")) or game:GetService("ReplicatedStorage")
-local plrs = cloneref and cloneref(game:GetService("Players")) or game:GetService("Players")
-local runS = cloneref and cloneref(game:GetService("RunService")) or game:GetService("RunService")
-local ws = cloneref and cloneref(game:GetService("Workspace")) or game:GetService("Workspace")
-local lplr = plrs.LocalPlayer
-
-getgenv().Config = {
-    Enabled = false,
-    FireRate = 0.0005,
-    WeaponSlot = "Melee"
-}
-
-local slots = { Primary = 1, Secondary = 2, Melee = 3 }
-local function getSlotNumber()
-    return slots[getgenv().Config.WeaponSlot] or 3
+if UseItemRemote and EnumLibrary then
+    local oldHook
+    oldHook = hookfunction(UseItemRemote.FireServer, newcclosure(function(self, objID, enumVal, camdata, extra)
+        if Config.Enabled and enumVal == EnumLibrary:ToEnum("StartShooting") then
+            local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local t = GetTarget()
+            if root and t then
+                camdata = BuildCamData(root.Position, t)
+            end
+        end
+        return oldHook(self, objID, enumVal, camdata, extra)
+    end))
 end
 
-task.spawn(function()
-    local util, enum, FighterController, SpectateController
-    pcall(function() util = require(repS.Modules.Utility) end)
-    pcall(function() enum = require(repS.Modules.EnumLibrary) end)
-    pcall(function() FighterController = require(lplr.PlayerScripts.Controllers.FighterController) end)
-    pcall(function() SpectateController = require(lplr.PlayerScripts.Controllers:WaitForChild("SpectateController")) end)
-    if not (util and enum and FighterController) then
-        warn("[VYX] Katana script: Rivals modules not found")
-        return
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Config.ToggleKey then
+        Config.Enabled = not Config.Enabled
+        print("[VYX SA] Silent Aim: " .. (Config.Enabled and "ON" or "OFF"))
     end
-    task.wait(2)
-    local lastFire = 0
-    local deflecting = {}
-    plrs.PlayerRemoving:Connect(function(player) deflecting[player] = nil end)
-
-    local function updateDeflection()
-        if not FighterController.Objects then return end
-        for _, fighterObj in FighterController.Objects do
-            local player = fighterObj.Player
-            if not player then continue end
-            if not fighterObj.Entity or not fighterObj.Entity:IsAlive() or fighterObj:Get("IsSpectating") then
-                deflecting[player] = false
-                continue
-            end
-            local equipped = fighterObj.EquippedItem
-            local isKatana = equipped and equipped.ViewModel and equipped.ViewModel.Name == "Katana"
-            local isDeflecting = false
-            if isKatana then
-                isDeflecting = (equipped._attack_cooldown and equipped._attack_cooldown > tick()) or false
-            end
-            deflecting[player] = isDeflecting
-        end
-    end
-
-    local function isEnemy(player)
-        if player == lplr then return false end
-        local duel = SpectateController and SpectateController.CurrentDuelSubject
-        local localDueler = duel and duel:GetDueler(lplr)
-        local localTeam = localDueler and localDueler:Get("TeamID") or nil
-        if localTeam and duel and duel.Duelers then
-            for _, dueler in duel.Duelers do
-                if dueler.Player == player then
-                    local team = dueler:Get("TeamID")
-                    return team ~= localTeam
-                end
-            end
-        end
-        local pTeam = player:GetAttribute("TeamID")
-        local lTeam = lplr:GetAttribute("TeamID")
-        if pTeam and lTeam then return pTeam ~= lTeam end
-        return true
-    end
-
-    local function getClosestTarget()
-        local char = lplr.Character
-        if not char then return nil, nil, nil end
-        local myRoot = char:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return nil, nil, nil end
-        local closestPlayer, closestRoot, closestHead = nil, nil, nil
-        local closestDist = 500
-        for _, player in plrs:GetPlayers() do
-            if not isEnemy(player) then continue end
-            local pChar = player.Character
-            if not pChar then continue end
-            local pRoot = pChar:FindFirstChild("HumanoidRootPart")
-            local pHead = pChar:FindFirstChild("Head")
-            local pHum = pChar:FindFirstChildWhichIsA("Humanoid")
-            if not (pRoot and pHead and pHum and pHum.Health > 0) then continue end
-            local dist = (myRoot.Position - pRoot.Position).Magnitude
-            if dist < closestDist then
-                closestDist = dist
-                closestPlayer = player
-                closestRoot = pRoot
-                closestHead = pHead
-            end
-        end
-        return closestPlayer, closestRoot, closestHead
-    end
-
-    runS.Heartbeat:Connect(function()
-        updateDeflection()
-        if not getgenv().Config.Enabled then return end
-        local targetPlayer, targetRoot, targetHead = getClosestTarget()
-        if not (targetPlayer and targetRoot and targetHead) then return end
-        if deflecting[targetPlayer] then return end
-        if not lplr.Character or not lplr.Character:FindFirstChild("HumanoidRootPart") then return end
-        if not FighterController.LocalFighter then return end
-        local item = FighterController.LocalFighter.EquippedItem
-        if not item then return end
-        if tick() - lastFire < getgenv().Config.FireRate then return end
-        lastFire = tick()
-        local desyncPos = (targetRoot.CFrame * CFrame.new(0, 1, 2)).Position
-        local desyncCF = CFrame.lookAt(desyncPos, targetHead.Position)
-        local aimCF = CFrame.lookAt(desyncCF.Position, targetHead.Position)
-        local targetCF = targetHead.CFrame
-        local aimedPos = targetHead.Position + Vector3.new(
-            (math.random() - 0.5) * 0.1,
-            (math.random() - 0.5) * 0.1,
-            (math.random() - 0.5) * 0.1
-        )
-        local objSpaceHeadOffset = targetHead.CFrame:ToObjectSpace(CFrame.new(aimedPos))
-        local cameradata = {}
-        cameradata[utf8.char(1)] = {
-            [utf8.char(0)] = util:EncodeCFrame(aimCF),
-            [utf8.char(1)] = util:EncodeCFrame(targetCF),
-            [utf8.char(2)] = targetHead,
-            [utf8.char(3)] = util:EncodeCFrame(objSpaceHeadOffset)
-        }
-        repS.Remotes.Replication.Fighter.UseItem:FireServer(
-            item:Get("ObjectID"),
-            enum:ToEnum("StartShooting"),
-            cameradata,
-            nil
-        )
-    end)
 end)
 
-print("[VYX External] Silent aim + Katana loaded")
-
+print("[VYX SA] Loaded — press " .. Config.ToggleKey.Name .. " to toggle")
