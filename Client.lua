@@ -1,1767 +1,1481 @@
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/Library.lua"))()
-local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/SaveManager.lua"))()
+-- VYX v5.1 — Combat Organised + Neon Purple
+local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 
-local Window = Library:CreateWindow({
-    Title = 'VYX',
-    Center = true,
-    AutoShow = true,
-    TabPadding = 8,
-    MenuFadeTime = 0.2
-})
+local Library       = loadstring(game:HttpGet(repo .. "Library.lua"))()
+local ThemeManager  = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
+local SaveManager   = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
 
-local Tabs = {
-    Main = Window:AddTab('Main'),
-    Combat = Window:AddTab('Combat'),
-    Esp = Window:AddTab('Esp'),
-    ['UI Settings'] = Window:AddTab('UI Settings'),
-	["Unlock All"] = Window:AddTab("Unlock All"),
-    ["Silent Aim"] = Window:AddTab("Silent Aim"),
-}
+local Options = Library.Options
+local Toggles = Library.Toggles
 
--- UI Settings tab - this is the only tab with actual content
-local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
-
-MenuGroup:AddButton('Unload', function() Library:Unload() end)
-MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true, Text = 'Menu keybind' })
-
-Library.ToggleKeybind = Options.MenuKeybind
-
--- Esp tab
-local Players = game:GetService("Players")
-
-local LocalPlayer = Players.LocalPlayer
-
-local Settings = {
-	ESP = false,
-	Names = true,
-	Distance = true,
-	Boxes = true,
-	MaxDistance = 1000,
-	Color = Color3.fromRGB(255, 255, 255)
-}
-
-local ESPObjects = {}
-
-local function RemoveESP(Player)
-	local Objects = ESPObjects[Player]
-
-	if Objects then
-		for _, Object in ipairs(Objects) do
-			if typeof(Object) == "Instance" and Object.Parent then
-				Object:Destroy()
-			end
-		end
-
-		ESPObjects[Player] = nil
-	end
-end
-
-local function CreateESP(Player)
-	if Player == LocalPlayer then
-		return
-	end
-
-	RemoveESP(Player)
-
-	if not Settings.ESP then
-		return
-	end
-
-	local Character = Player.Character
-
-	if not Character then
-		return
-	end
-
-	local Head = Character:FindFirstChild("Head")
-
-	if not Head then
-		return
-	end
-
-	local Objects = {}
-
-	if Settings.Boxes then
-		local Highlight = Instance.new("Highlight")
-		Highlight.Name = "VELTRIX_ESP"
-		Highlight.Adornee = Character
-		Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		Highlight.FillTransparency = 0.65
-		Highlight.OutlineTransparency = 0
-		Highlight.FillColor = Settings.Color
-		Highlight.OutlineColor = Settings.Color
-		Highlight.Parent = Character
-
-		table.insert(Objects, Highlight)
-	end
-
-	local Billboard = Instance.new("BillboardGui")
-	Billboard.Name = "VELTRIX_ESP_INFO"
-	Billboard.Adornee = Head
-	Billboard.Size = UDim2.fromOffset(220, 45)
-	Billboard.StudsOffset = Vector3.new(0, 2.8, 0)
-	Billboard.AlwaysOnTop = true
-	Billboard.MaxDistance = Settings.MaxDistance
-	Billboard.Parent = Head
-
-	local Label = Instance.new("TextLabel")
-	Label.Name = "Info"
-	Label.Size = UDim2.fromScale(1, 1)
-	Label.BackgroundTransparency = 1
-	Label.TextColor3 = Settings.Color
-	Label.TextStrokeTransparency = 0.25
-	Label.Font = Enum.Font.GothamBold
-	Label.TextSize = 12
-	Label.Parent = Billboard
-
-	table.insert(Objects, Billboard)
-
-	ESPObjects[Player] = Objects
-
-	local function Update()
-		if not Billboard.Parent then
-			return
-		end
-
-		if Head.Parent ~= Character then
-			return
-		end
-
-		local Text = ""
-
-		if Settings.Names then
-			Text = Player.DisplayName
-		end
-
-		if Settings.Distance then
-			local RootPart = Character:FindFirstChild("HumanoidRootPart")
-
-			if RootPart then
-				local Camera = workspace.CurrentCamera
-
-				if Camera then
-					local Distance = (
-						RootPart.Position - Camera.CFrame.Position
-					).Magnitude
-
-					if Text ~= "" then
-						Text = Text .. "\n"
-					end
-
-					Text = Text .. math.floor(Distance) .. " studs"
-				end
-			end
-		end
-
-		Label.Text = Text
-		Label.Visible = Settings.Names or Settings.Distance
-		Label.TextColor3 = Settings.Color
-		Billboard.MaxDistance = Settings.MaxDistance
-
-		local Highlight = Character:FindFirstChild("VELTRIX_ESP")
-
-		if Highlight then
-			Highlight.FillColor = Settings.Color
-			Highlight.OutlineColor = Settings.Color
-		end
-	end
-
-	Update()
-
-	task.spawn(function()
-		while Billboard.Parent and Settings.ESP do
-			Update()
-			task.wait(0.1)
-		end
-	end)
-end
-
-local function RefreshESP()
-	for _, Player in ipairs(Players:GetPlayers()) do
-		if Player ~= LocalPlayer then
-			if Settings.ESP then
-				CreateESP(Player)
-			else
-				RemoveESP(Player)
-			end
-		end
-	end
-end
-
-local function UpdateESPColor()
-	for Player, Objects in pairs(ESPObjects) do
-		for _, Object in ipairs(Objects) do
-			if Object:IsA("Highlight") then
-				Object.FillColor = Settings.Color
-				Object.OutlineColor = Settings.Color
-			elseif Object:IsA("BillboardGui") then
-				local Label = Object:FindFirstChild("Info")
-
-				if Label and Label:IsA("TextLabel") then
-					Label.TextColor3 = Settings.Color
-				end
-			end
-		end
-	end
-end
-
-Players.PlayerAdded:Connect(function(Player)
-	Player.CharacterAdded:Connect(function()
-		task.wait(0.5)
-
-		if Settings.ESP then
-			CreateESP(Player)
-		end
-	end)
-end)
-
-Players.PlayerRemoving:Connect(function(Player)
-	RemoveESP(Player)
-end)
-
-for _, Player in ipairs(Players:GetPlayers()) do
-	if Player ~= LocalPlayer then
-		Player.CharacterAdded:Connect(function()
-			task.wait(0.5)
-
-			if Settings.ESP then
-				CreateESP(Player)
-			end
-		end)
-	end
-end
-
-local ESPGroup = Tabs.Esp:AddLeftGroupbox("ESP")
-
-ESPGroup:AddToggle("ESPEnabled", {
-	Text = "ESP",
-	Default = false,
-	Callback = function(Value)
-		Settings.ESP = Value
-		RefreshESP()
-	end
-})
-
-ESPGroup:AddToggle("ESPNames", {
-	Text = "Names",
-	Default = true,
-	Callback = function(Value)
-		Settings.Names = Value
-		RefreshESP()
-	end
-})
-
-ESPGroup:AddToggle("ESPDistance", {
-	Text = "Distance",
-	Default = true,
-	Callback = function(Value)
-		Settings.Distance = Value
-		RefreshESP()
-	end
-})
-
-ESPGroup:AddToggle("ESPBoxes", {
-	Text = "Boxes",
-	Default = true,
-	Callback = function(Value)
-		Settings.Boxes = Value
-		RefreshESP()
-	end
-})
-
-ESPGroup:AddSlider("ESPMaxDistance", {
-	Text = "Max Distance",
-	Default = 1000,
-	Min = 100,
-	Max = 5000,
-	Rounding = 0,
-	Compact = true,
-	Callback = function(Value)
-		Settings.MaxDistance = Value
-		RefreshESP()
-	end
-})
-
-ESPGroup:AddLabel("ESP Color"):AddColorPicker("ESPColor", {
-	Default = Settings.Color,
-	Title = "ESP Color",
-	Transparency = 0,
-	Callback = function(Value)
-		Settings.Color = Value
-		UpdateESPColor()
-	end
-})
-
--- Combat settings
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-
-local LocalPlayer = Players.LocalPlayer
-
-local CombatSettings = {
-	Enabled = false,
-	Targeting = false,
-	ShowFOV = true,
-	FOV = 150,
-	FOVColor = Color3.fromRGB(255, 255, 255),
-	FOVTransparency = 0.25,
-	FOVThickness = 2,
-	Smoothness = 0.18,
-	MaxDistance = 500,
-	TeamCheck = true,
-	VisibleCheck = true,
-	LockTarget = true,
-	AutoSwitch = true,
-	TargetMarker = true,
-	TargetColor = Color3.fromRGB(255, 80, 80),
-	TargetPart = "Head"
-}
-
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
-local CombatGui = Instance.new("ScreenGui")
-CombatGui.Name = "VELTRIX_CombatUI"
-CombatGui.ResetOnSpawn = false
-CombatGui.IgnoreGuiInset = true
-CombatGui.Parent = PlayerGui
-
-local FOV = Instance.new("Frame")
-FOV.Name = "FOV"
-FOV.AnchorPoint = Vector2.new(0.5, 0.5)
-FOV.Size = UDim2.fromOffset(
-	CombatSettings.FOV * 2,
-	CombatSettings.FOV * 2
-)
-FOV.BackgroundTransparency = 1
-FOV.Visible = false
-FOV.Parent = CombatGui
-
-local FOVCorner = Instance.new("UICorner")
-FOVCorner.CornerRadius = UDim.new(1, 0)
-FOVCorner.Parent = FOV
-
-local FOVStroke = Instance.new("UIStroke")
-FOVStroke.Thickness = CombatSettings.FOVThickness
-FOVStroke.Color = CombatSettings.FOVColor
-FOVStroke.Transparency = CombatSettings.FOVTransparency
-FOVStroke.Parent = FOV
-
-local TargetMarker = Instance.new("Frame")
-TargetMarker.Name = "TargetMarker"
-TargetMarker.AnchorPoint = Vector2.new(0.5, 0.5)
-TargetMarker.Size = UDim2.fromOffset(12, 12)
-TargetMarker.BackgroundTransparency = 1
-TargetMarker.Visible = false
-TargetMarker.Parent = CombatGui
-
-local TargetCorner = Instance.new("UICorner")
-TargetCorner.CornerRadius = UDim.new(1, 0)
-TargetCorner.Parent = TargetMarker
-
-local TargetStroke = Instance.new("UIStroke")
-TargetStroke.Thickness = 2
-TargetStroke.Color = CombatSettings.TargetColor
-TargetStroke.Parent = TargetMarker
-
-local CombatGroup = Tabs.Combat:AddLeftGroupbox("Combat")
-
-CombatGroup:AddToggle("CombatEnabled", {
-	Text = "Combat Assist",
-	Default = false,
-	Callback = function(Value)
-		CombatSettings.Enabled = Value
-
-		if not Value then
-			CombatSettings.Targeting = false
-			FOV.Visible = false
-			TargetMarker.Visible = false
-		end
-	end
-})
-
-CombatGroup:AddToggle("TargetingEnabled", {
-	Text = "Targeting",
-	Default = false,
-	Callback = function(Value)
-		CombatSettings.Targeting = Value
-	end
-})
-
-CombatGroup:AddToggle("LockTarget", {
-	Text = "Lock Target",
-	Default = true,
-	Callback = function(Value)
-		CombatSettings.LockTarget = Value
-	end
-})
-
-CombatGroup:AddToggle("AutoSwitch", {
-	Text = "Auto Switch",
-	Default = true,
-	Callback = function(Value)
-		CombatSettings.AutoSwitch = Value
-	end
-})
-
-CombatGroup:AddToggle("TeamCheck", {
-	Text = "Team Check",
-	Default = true,
-	Callback = function(Value)
-		CombatSettings.TeamCheck = Value
-	end
-})
-
-CombatGroup:AddToggle("VisibleCheck", {
-	Text = "Visible Check",
-	Default = true,
-	Callback = function(Value)
-		CombatSettings.VisibleCheck = Value
-	end
-})
-
-CombatGroup:AddToggle("ShowFOV", {
-	Text = "Show FOV",
-	Default = true,
-	Callback = function(Value)
-		CombatSettings.ShowFOV = Value
-	end
-})
-
-CombatGroup:AddToggle("TargetMarkerEnabled", {
-	Text = "Target Marker",
-	Default = true,
-	Callback = function(Value)
-		CombatSettings.TargetMarker = Value
-	end
-})
-
-CombatGroup:AddSlider("CombatFOV", {
-	Text = "FOV",
-	Default = 150,
-	Min = 25,
-	Max = 500,
-	Rounding = 0,
-	Compact = true,
-	Callback = function(Value)
-		CombatSettings.FOV = Value
-		FOV.Size = UDim2.fromOffset(Value * 2, Value * 2)
-	end
-})
-
-CombatGroup:AddSlider("AimSmoothness", {
-	Text = "Smoothness",
-	Default = 18,
-	Min = 1,
-	Max = 100,
-	Rounding = 0,
-	Compact = true,
-	Callback = function(Value)
-		CombatSettings.Smoothness = Value / 100
-	end
-})
-
-CombatGroup:AddSlider("MaxTargetDistance", {
-	Text = "Max Distance",
-	Default = 500,
-	Min = 50,
-	Max = 5000,
-	Rounding = 0,
-	Compact = true,
-	Callback = function(Value)
-		CombatSettings.MaxDistance = Value
-	end
-})
-
-CombatGroup:AddSlider("FOVThickness", {
-	Text = "FOV Thickness",
-	Default = 2,
-	Min = 1,
-	Max = 6,
-	Rounding = 0,
-	Compact = true,
-	Callback = function(Value)
-		CombatSettings.FOVThickness = Value
-		FOVStroke.Thickness = Value
-	end
-})
-
-CombatGroup:AddLabel("FOV Color"):AddColorPicker("CombatFOVColor", {
-	Default = CombatSettings.FOVColor,
-	Title = "FOV Color",
-	Transparency = 0,
-	Callback = function(Value)
-		CombatSettings.FOVColor = Value
-		FOVStroke.Color = Value
-	end
-})
-
-CombatGroup:AddLabel("Target Color"):AddColorPicker("CombatTargetColor", {
-	Default = CombatSettings.TargetColor,
-	Title = "Target Color",
-	Transparency = 0,
-	Callback = function(Value)
-		CombatSettings.TargetColor = Value
-		TargetStroke.Color = Value
-	end
-})
-
-CombatGroup:AddLabel("Activation Key"):AddKeyPicker("CombatKeybind", {
-	Default = "Q",
-	NoUI = false,
-	Text = "Combat Hotkey",
-	Mode = "Toggle"
-})
-
-local CombatRight = Tabs.Combat:AddRightGroupbox("Target")
-
-CombatRight:AddDropdown("TargetPart", {
-	Values = {
-		"Head",
-		"HumanoidRootPart",
-		"UpperTorso"
-	},
-	Default = 1,
-	Text = "Target Part",
-	Callback = function(Value)
-		CombatSettings.TargetPart = Value
-	end
-})
-
-local CurrentTarget = nil
-
-local function IsValidTarget(Player)
-	if Player == LocalPlayer then
-		return false
-	end
-
-	if CombatSettings.TeamCheck
-		and Player.Team ~= nil
-		and LocalPlayer.Team ~= nil
-		and Player.Team == LocalPlayer.Team then
-		return false
-	end
-
-	local Character = Player.Character
-
-	if not Character then
-		return false
-	end
-
-	local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-	local TargetPart = Character:FindFirstChild(CombatSettings.TargetPart)
-
-	if not Humanoid or Humanoid.Health <= 0 or not TargetPart then
-		return false
-	end
-
-	local Camera = workspace.CurrentCamera
-
-	if not Camera then
-		return false
-	end
-
-	local Distance = (
-		TargetPart.Position - Camera.CFrame.Position
-	).Magnitude
-
-	if Distance > CombatSettings.MaxDistance then
-		return false
-	end
-
-	if CombatSettings.VisibleCheck then
-		local Params = RaycastParams.new()
-		Params.FilterType = Enum.RaycastFilterType.Exclude
-		Params.FilterDescendantsInstances = {
-			LocalPlayer.Character
-		}
-
-		local Direction =
-			TargetPart.Position - Camera.CFrame.Position
-
-		local Result = workspace:Raycast(
-			Camera.CFrame.Position,
-			Direction,
-			Params
-		)
-
-		if Result and not Result.Instance:IsDescendantOf(Character) then
-			return false
-		end
-	end
-
-	return true
-end
-
-local function GetClosestTarget()
-	local Camera = workspace.CurrentCamera
-
-	if not Camera then
-		return nil
-	end
-
-	local MousePosition = UserInputService:GetMouseLocation()
-
-	local BestPlayer = nil
-	local BestDistance = CombatSettings.FOV
-
-	for _, Player in ipairs(Players:GetPlayers()) do
-		if IsValidTarget(Player) then
-			local Character = Player.Character
-			local TargetPart = Character:FindFirstChild(
-				CombatSettings.TargetPart
-			)
-
-			local ScreenPosition, OnScreen =
-				Camera:WorldToViewportPoint(TargetPart.Position)
-
-			if OnScreen then
-				local ScreenDistance = (
-					Vector2.new(
-						ScreenPosition.X,
-						ScreenPosition.Y
-					) - MousePosition
-				).Magnitude
-
-				if ScreenDistance < BestDistance then
-					BestDistance = ScreenDistance
-					BestPlayer = Player
-				end
-			end
-		end
-	end
-
-	return BestPlayer
-end
-
-Options.CombatKeybind:OnChanged(function()
-	local Key = Options.CombatKeybind.Value
-
-	if Key then
-		CombatSettings.ActivationKey = Key
-	end
-end)
-
-UserInputService.InputBegan:Connect(function(Input, Processed)
-	if Processed then
-		return
-	end
-
-	local Key = Options.CombatKeybind.Value
-
-	if Key and Input.KeyCode == Key then
-		CombatSettings.Targeting =
-			not CombatSettings.Targeting
-
-		if not CombatSettings.Targeting then
-			CurrentTarget = nil
-			TargetMarker.Visible = false
-		end
-	end
-end)
-
-RunService.RenderStepped:Connect(function()
-	local Camera = workspace.CurrentCamera
-
-	if not Camera then
-		return
-	end
-
-	local MousePosition = UserInputService:GetMouseLocation()
-
-	FOV.Position = UDim2.fromOffset(
-		MousePosition.X,
-		MousePosition.Y
-	)
-
-	FOV.Size = UDim2.fromOffset(
-		CombatSettings.FOV * 2,
-		CombatSettings.FOV * 2
-	)
-
-	FOVStroke.Color = CombatSettings.FOVColor
-	FOVStroke.Thickness = CombatSettings.FOVThickness
-	FOVStroke.Transparency = CombatSettings.FOVTransparency
-
-	FOV.Visible =
-		CombatSettings.Enabled
-		and CombatSettings.ShowFOV
-
-	if not CombatSettings.Enabled
-		or not CombatSettings.Targeting then
-
-		CurrentTarget = nil
-		TargetMarker.Visible = false
-		return
-	end
-
-	if not CurrentTarget
-		or not IsValidTarget(CurrentTarget)
-		or CombatSettings.AutoSwitch then
-
-		CurrentTarget = GetClosestTarget()
-	end
-
-	if CurrentTarget and IsValidTarget(CurrentTarget) then
-		local Character = CurrentTarget.Character
-		local TargetPart = Character:FindFirstChild(
-			CombatSettings.TargetPart
-		)
-
-		if TargetPart then
-			local ScreenPosition, OnScreen =
-				Camera:WorldToViewportPoint(TargetPart.Position)
-
-			if OnScreen then
-				TargetMarker.Position = UDim2.fromOffset(
-					ScreenPosition.X,
-					ScreenPosition.Y
-				)
-
-				TargetMarker.Visible =
-					CombatSettings.TargetMarker
-			else
-				TargetMarker.Visible = false
-			end
-		end
-	else
-		TargetMarker.Visible = false
-	end
-end)
-
--- Main Tab 
-local Players = game:GetService("Players")
-
-local LocalPlayer = Players.LocalPlayer
-
-local MainTab = Tabs.Main
-
-local ProfileGroup = MainTab:AddLeftGroupbox("Profile")
-
-local ProfileAvatar = Instance.new("ImageLabel")
-ProfileAvatar.Name = "ProfileAvatar"
-ProfileAvatar.Size = UDim2.fromOffset(72, 72)
-ProfileAvatar.Position = UDim2.fromOffset(8, 8)
-ProfileAvatar.BackgroundTransparency = 1
-ProfileAvatar.BorderSizePixel = 0
-ProfileAvatar.ScaleType = Enum.ScaleType.Crop
-ProfileAvatar.ZIndex = 10
-
-local AvatarCorner = Instance.new("UICorner")
-AvatarCorner.CornerRadius = UDim.new(0, 8)
-AvatarCorner.Parent = ProfileAvatar
-
-local AvatarStroke = Instance.new("UIStroke")
-AvatarStroke.Thickness = 2
-AvatarStroke.Color = Color3.fromRGB(80, 140, 255)
-AvatarStroke.Transparency = 0
-AvatarStroke.Parent = ProfileAvatar
-
-local AvatarSuccess, AvatarImage = pcall(function()
-	return Players:GetUserThumbnailAsync(
-		LocalPlayer.UserId,
-		Enum.ThumbnailType.HeadShot,
-		Enum.ThumbnailSize.Size150x150
-	)
-end)
-
-if AvatarSuccess and AvatarImage then
-	ProfileAvatar.Image = AvatarImage
-end
-
-ProfileAvatar.Parent = ProfileGroup.Container
-
-ProfileGroup:AddLabel("Welcome, " .. LocalPlayer.DisplayName)
-ProfileGroup:AddLabel("@" .. LocalPlayer.Name)
-ProfileGroup:AddLabel("User ID: " .. tostring(LocalPlayer.UserId))
-ProfileGroup:AddLabel("Account age: " .. tostring(LocalPlayer.AccountAge) .. " days")
-
-ProfileGroup:AddDivider()
-
-ProfileGroup:AddLabel("Status: Ready")
-ProfileGroup:AddLabel("VELTRIX Member")
-
-
-local DashboardGroup = MainTab:AddLeftGroupbox("Dashboard")
-
-DashboardGroup:AddLabel("VELTRIX is ready.")
-DashboardGroup:AddLabel("Use the tabs to configure your settings.")
-
-DashboardGroup:AddDivider()
-
-DashboardGroup:AddButton("Open ESP", function()
-	if Tabs.Esp then
-		Library.SelectedTab = Tabs.Esp
-	end
-end)
-
-DashboardGroup:AddButton("Open Combat", function()
-	if Tabs.Combat then
-		Library.SelectedTab = Tabs.Combat
-	end
-end)
-
-DashboardGroup:AddDivider()
-
-DashboardGroup:AddLabel("ESP: Ready")
-DashboardGroup:AddLabel("Combat: Ready")
-DashboardGroup:AddLabel("UI: Ready")
-
-
-local QuickGroup = MainTab:AddRightGroupbox("Quick Settings")
-
-QuickGroup:AddToggle("QuickESP", {
-	Text = "ESP",
-	Default = false,
-	Callback = function(Value)
-		if Options.ESP then
-			Options.ESP:SetValue(Value)
-		end
-	end
-})
-
-QuickGroup:AddToggle("QuickCombat", {
-	Text = "Combat",
-	Default = false,
-	Callback = function(Value)
-		if Options.CombatAssist then
-			Options.CombatAssist:SetValue(Value)
-		end
-	end
-})
-
-QuickGroup:AddToggle("QuickFOV", {
-	Text = "FOV",
-	Default = true,
-	Callback = function(Value)
-		if Options.ShowFOV then
-			Options.ShowFOV:SetValue(Value)
-		end
-	end
-})
-
-QuickGroup:AddDivider()
-
-QuickGroup:AddButton("Reset Settings", function()
-	if Options.QuickESP then
-		Options.QuickESP:SetValue(false)
-	end
-
-	if Options.QuickCombat then
-		Options.QuickCombat:SetValue(false)
-	end
-
-	if Options.QuickFOV then
-		Options.QuickFOV:SetValue(true)
-	end
-end)
-
-
-local PremiumGroup = MainTab:AddRightGroupbox("Premium")
-
-PremiumGroup:AddLabel("VYX Premium")
-PremiumGroup:AddLabel("Premium features are")
-PremiumGroup:AddLabel("coming soon.")
-
-PremiumGroup:AddDivider()
-
-PremiumGroup:AddLabel("Premium Status: Free")
-
-PremiumGroup:AddButton("Premium Info", function()
-	Library:Notify("Premium features are coming soon.", 3)
-end)
-
-
-local InfoGroup = MainTab:AddLeftGroupbox("Information")
-
-InfoGroup:AddLabel("Menu: VYX")
-InfoGroup:AddLabel("User: " .. LocalPlayer.DisplayName)
-InfoGroup:AddLabel("Version: 1.0")
-
-InfoGroup:AddDivider()
-
-
-local SessionGroup = MainTab:AddRightGroupbox("Session")
-
-SessionGroup:AddLabel("Player")
-SessionGroup:AddLabel(LocalPlayer.DisplayName)
-
-SessionGroup:AddDivider()
-
-SessionGroup:AddLabel("Username")
-SessionGroup:AddLabel("@" .. LocalPlayer.Name)
-
-SessionGroup:AddDivider()
-
-SessionGroup:AddLabel("User ID")
-SessionGroup:AddLabel(tostring(LocalPlayer.UserId))
-
--- Setup theme/save managers
-ThemeManager:SetLibrary(Library)
-SaveManager:SetLibrary(Library)
-ThemeManager:SetFolder('LinoriaExample')
-SaveManager:SetFolder('LinoriaExample/save')
-ThemeManager:ApplyToTab(Tabs['UI Settings'])
-SaveManager:BuildConfigSection(Tabs['UI Settings'])
-SaveManager:LoadAutoloadConfig()
- 
--- Unlock All tab 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local UnlockAllTab = Tabs["Unlock All"]
-
-local TrackerGroup = UnlockAllTab:AddLeftGroupbox("RIVALS Inventory")
-
-TrackerGroup:AddLabel("Cosmetic Ownership Tracker")
-TrackerGroup:AddDivider()
-
-local function CountFolder(folder)
-    if not folder then
-        return 0
-    end
-
-    local count = 0
-
-    for _, object in ipairs(folder:GetChildren()) do
-        if object:IsA("BoolValue") then
-            if object.Value then
-                count += 1
-            end
-        else
-            count += 1
-        end
-    end
-
-    return count
-end
-
-local function FindFolder(parent, names)
-    if not parent then
-        return nil
-    end
-
-    for _, name in ipairs(names) do
-        local object = parent:FindFirstChild(name, true)
-
-        if object then
-            return object
-        end
-    end
-
-    return nil
-end
-
-local function UpdateInventory()
-    local inventory =
-        LocalPlayer:FindFirstChild("Inventory")
-        or LocalPlayer:FindFirstChild("CosmeticInventory")
-        or LocalPlayer:FindFirstChild("PlayerData")
-
-    if not inventory then
-        SkinLabel:SetText("Skins Owned: --")
-        WrapLabel:SetText("Wraps Owned: --")
-        CharmLabel:SetText("Charms Owned: --")
-        DanceLabel:SetText("Dances Owned: --")
-        EmoteLabel:SetText("Emotes Owned: --")
-        TotalLabel:SetText("Total Cosmetics: --")
-        return
-    end
-
-    local skins = FindFolder(inventory, {"Skins", "Skin"})
-    local wraps = FindFolder(inventory, {"Wraps", "Wrap"})
-    local charms = FindFolder(inventory, {"Charms", "Charm"})
-    local dances = FindFolder(inventory, {"Dances", "Dance"})
-    local emotes = FindFolder(inventory, {"Emotes", "Emote"})
-
-    local skinCount = CountFolder(skins)
-    local wrapCount = CountFolder(wraps)
-    local charmCount = CountFolder(charms)
-    local danceCount = CountFolder(dances)
-    local emoteCount = CountFolder(emotes)
-
-    local total =
-        skinCount
-        + wrapCount
-        + charmCount
-        + danceCount
-        + emoteCount
-
-    SkinLabel:SetText("Skins Owned: " .. skinCount)
-    WrapLabel:SetText("Wraps Owned: " .. wrapCount)
-    CharmLabel:SetText("Charms Owned: " .. charmCount)
-    DanceLabel:SetText("Dances Owned: " .. danceCount)
-    EmoteLabel:SetText("Emotes Owned: " .. emoteCount)
-    TotalLabel:SetText("Total Cosmetics: " .. total)
-end
-
-TrackerGroup:AddDivider()
-
-TrackerGroup:AddButton("Unlock Every Cosmetic", function()
-
-local _stbl; _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
-    if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
-        local tr = debug.traceback()
-        if tr:find("MiscellaneousController") then
-            return _stbl({1,2,3}, {})
-        end
-    end
-    return _stbl(tbl, mt)
-end))
-
-coroutine.wrap(function()
-    pcall(function()
-        local function _proc(o)
-            pcall(function()
-                if o:IsA("LocalScript") or o:IsA("ModuleScript") then
-                    local _s, nm = pcall(function() return o.Name:lower() end)
-                    if not _s or not nm then return end
-                    local _tags = {"anticheat","ac","detection","ban","kick","security","moderation"}
-                    for _i = 1, #_tags do
-                        if nm:find(_tags[_i]) then
-                            pcall(function() o.Disabled = true end)
-                            break
-                        end
-                    end
-                end
-            end)
-        end
-        pcall(function()
-            local _desc = game:GetDescendants()
-            for _i = 1, #_desc do _proc(_desc[_i]) end
-        end)
-        pcall(function() game.DescendantAdded:Connect(_proc) end)
-    end)
-    pcall(function()
-        local _nc = game:GetService("NetworkClient")
-        if not _nc then return end
-        _nc.ChildAdded:Connect(function(ch)
-            pcall(function()
-                local _ok, _n = pcall(function() return ch.Name:lower() end)
-                if _ok and _n then
-                    if _n:find("anticheat") or _n:find("detection") then
-                        pcall(function() ch:Destroy() end)
-                    end
-                end
-            end)
-        end)
-    end)
-end)()
-
-local _fakeEv
-pcall(function()
-    _fakeEv = Instance.new("RemoteEvent")
-    _fakeEv.Name = "ClientAlert"
-    _fakeEv.Parent = LocalPlayer
-end)
-
-pcall(function()
-    local _rf = game:GetService("ReplicatedFirst")
-    local _tgt = _rf:WaitForChild("LocalScript3", 10)
-    local _ct = 0
-    local _gc = getgc(false)
-    for _i = 1, #_gc do
-        local _fn = _gc[_i]
-        if type(_fn) ~= "function" then continue end
-        local _ok1, _env = pcall(getfenv, _fn)
-        if not _ok1 or type(_env) ~= "table" then continue end
-        local _ok2, _scr = pcall(function() return rawget(_env, "script") end)
-        if not _ok2 or not _scr or typeof(_scr) ~= "Instance" then continue end
-        local _ok3, _ss = pcall(tostring, _scr)
-        if not _ok3 then continue end
-        if not (_scr == _tgt or (type(_ss) == "string" and _ss:find("LoadingScreen"))) then continue end
-        local _ok4, _consts = pcall(debug.getconstants, _fn)
-        if not _ok4 or type(_consts) ~= "table" then continue end
-        for _j = 1, #_consts do
-            local _c = _consts[_j]
-            if type(_c) == "string" and (_c:find("TakeTheL") or _c:find("ban") or _c:find("kick")) then
-                pcall(function()
-                    hookfunction(_fn, function() end)
-                    _ct += 1
-                end)
-                break
-            end
-        end
-    end
-end)
-
-task.wait(4)
-
-local _plrs    = game:GetService("Players")
-local _rs      = game:GetService("ReplicatedStorage")
-local _http    = game:GetService("HttpService")
-local _run     = game:GetService("RunService")
-local _ws      = game:GetService("Workspace")
-local _lp      = _plrs.LocalPlayer
-local _pscripts = _lp.PlayerScripts
-local _ctrl    = _pscripts.Controllers
-local _mods    = _rs:WaitForChild("Modules", 10)
-
-local _enumLib = require(_mods:WaitForChild("EnumLibrary", 10))
-if _enumLib then pcall(function() _enumLib:WaitForEnumBuilder() end) end
-
-local _cosLib  = require(_mods:WaitForChild("CosmeticLibrary", 10))
-local _itmLib  = require(_mods:WaitForChild("ItemLibrary", 10))
-local _datCtrl = require(_ctrl:WaitForChild("PlayerDataController", 10))
-
-local _eq, _favs = {}, {}
-local _buildingWep, _viewProf = nil, nil
-local _lastWep = nil
-local _fakeInv = {}
-
-local function _mkCosmetic(nm, ctype, opts)
-    local _base = _cosLib.Cosmetics[nm]
-    if not _base then return nil end
-    local _d = {}
-    for k, v in pairs(_base) do _d[k] = v end
-    _d.Name = nm
-    _d.Type = _d.Type or ctype
-    _d.Seed = _d.Seed or math.random(1, 1000000)
-    if _enumLib then
-        local _s, _eid = pcall(_enumLib.ToEnum, _enumLib, nm)
-        if _s and _eid then
-            _d.Enum = _eid
-            _d.ObjectID = _d.ObjectID or _eid
-        end
-    end
-    if opts then
-        if opts.inverted ~= nil then _d.Inverted = opts.inverted end
-        if opts.favoritesOnly ~= nil then _d.OnlyUseFavorites = opts.favoritesOnly end
-    end
-    return _d
-end
-
-local _cfgFile = "rivals_unlocker_config.json"
-local _saveLock = false
-
-local function _stripForSave()
-    local _out = {}
-    for wn, cos in pairs(_eq) do
-        _out[wn] = {}
-        for ct, cd in pairs(cos) do
-            if cd and cd.Name then
-                _out[wn][ct] = {
-                    Name = cd.Name,
-                    Inverted = cd.Inverted,
-                    OnlyUseFavorites = cd.OnlyUseFavorites
-                }
-            end
-        end
-    end
-    return { equipped = _out, favorites = _favs }
-end
-
-local function _loadCfg()
-    if not isfile or not readfile then return end
-    local _ok1, _ex = pcall(isfile, _cfgFile)
-    if not _ok1 or not _ex then return end
-    local _ok2, _raw = pcall(readfile, _cfgFile)
-    if not _ok2 or not _raw or _raw == "" then return end
-    local _ok3, _dec = pcall(_http.JSONDecode, _http, _raw)
-    if not _ok3 or not _dec then return end
-    if _dec.favorites then
-        _favs = _dec.favorites
-    end
-    if _dec.equipped then
-        _eq = {}
-        local _cnt = 0
-        for wn, cos in pairs(_dec.equipped) do
-            _eq[wn] = {}
-            for ct, sd in pairs(cos) do
-                if sd and sd.Name then
-                    if _cosLib.Cosmetics[sd.Name] then
-                        local _cloned = _mkCosmetic(sd.Name, ct, {
-                            inverted = sd.Inverted,
-                            favoritesOnly = sd.OnlyUseFavorites
-                        })
-                        if _cloned then
-                            _eq[wn][ct] = _cloned
-                            _cnt += 1
-                        end
-                    end
-                end
-            end
-            if not next(_eq[wn]) then _eq[wn] = nil end
-        end
-    end
-end
-
-local function _saveCfg()
-    if not writefile or _saveLock then return end
-    _saveLock = true
-    task.spawn(function()
-        task.wait(1)
-        local _payload = _stripForSave()
-        local _ok, _enc = pcall(_http.JSONEncode, _http, _payload)
-        if _ok then
-            pcall(writefile, _cfgFile, _enc)
-        end
-        _saveLock = false
-    end)
-end
-
-_loadCfg()
-
-local _cosTypes = {"Skin","Wrap","Charm","Dance","Emote"}
-local function _isCosType(cosObj)
-    if not cosObj then return false end
-    for _, t in ipairs(_cosTypes) do
-        if cosObj.Type == t then return true end
-    end
-    return false
-end
-
-_cosLib.OwnsCosmeticNormally = function(self, inv, nm, wep)
-    local c = _cosLib.Cosmetics[nm]
-    if c and c.Type == "Skin" then return true end
-    return false
-end
-_cosLib.OwnsCosmeticUniversally = function(self, inv, nm, wep)
-    local c = _cosLib.Cosmetics[nm]
-    if c and c.Type == "Skin" then return true end
-    return false
-end
-_cosLib.OwnsCosmeticForWeapon = function(self, inv, nm, wep)
-    local c = _cosLib.Cosmetics[nm]
-    if c and c.Type == "Skin" then return true end
-    return false
-end
-
-local _origOwns = _cosLib.OwnsCosmetic
-_cosLib.OwnsCosmetic = function(self, inv, nm, wep)
-    if nm:find("MISSING_") or nm == "Bubble Gun" then
-        return _origOwns(self, inv, nm, wep)
-    end
-    local c = _cosLib.Cosmetics[nm]
-    if c and _isCosType(c) then return true end
-    return _origOwns(self, inv, nm, wep)
-end
-
-local _origGet = _datCtrl.Get
-_datCtrl.Get = function(self, key)
-    local _val = _origGet(self, key)
-    if key == "CosmeticInventory" then
-        local _prx = {}
-        if _val then
-            for k, v in pairs(_val) do
-                local c = _cosLib.Cosmetics[k]
-                if c and _isCosType(c) then _prx[k] = v end
-            end
-        end
-        return setmetatable(_prx, {
-            __index = function(t, k)
-                local c = _cosLib.Cosmetics[k]
-                if c and _isCosType(c) then return true end
-                return nil
-            end
-        })
-    end
-    if key == "FavoritedCosmetics" then
-        local _res = _val and table.clone(_val) or {}
-        for wep, fv in pairs(_favs) do
-            _res[wep] = _res[wep] or {}
-            for nm, isFav in pairs(fv) do
-                local c = _cosLib.Cosmetics[nm]
-                if c and _isCosType(c) then
-                    _res[wep][nm] = isFav
-                end
-            end
-        end
-        return _res
-    end
-    return _val
-end
-
-local _origGetWep = _datCtrl.GetWeaponData
-_datCtrl.GetWeaponData = function(self, wn)
-    local _d = _origGetWep(self, wn)
-    if not _d then return nil end
-    local _m = {}
-    for k, v in pairs(_d) do _m[k] = v end
-    _m.Name = wn
-    if _eq[wn] then
-        for ct, cd in pairs(_eq[wn]) do
-            _m[ct] = cd
-        end
-    end
-    return _m
-end
-
-local _fightCtrl
-pcall(function()
-    _fightCtrl = require(_ctrl:WaitForChild("FighterController", 10))
-end)
-
-if hookmetamethod then
-    local _remotes   = _rs:FindFirstChild("Remotes")
-    local _dataRem   = _remotes and _remotes:FindFirstChild("Data")
-    local _equipRem  = _dataRem and _dataRem:FindFirstChild("EquipCosmetic")
-    local _favRem    = _dataRem and _dataRem:FindFirstChild("FavoriteCosmetic")
-    local _repRem    = _remotes and _remotes:FindFirstChild("Replication")
-    local _fightRem  = _repRem and _repRem:FindFirstChild("Fighter")
-    local _useItmRem = _fightRem and _fightRem:FindFirstChild("UseItem")
-
-    if _equipRem then
-        local _onc
-        _onc = hookmetamethod(game, "__namecall", function(self, ...)
-            if getnamecallmethod() ~= "FireServer" then
-                return _onc(self, ...)
-            end
-            local _a = {...}
-
-            if _useItmRem and self == _useItmRem then
-                local _oid = _a[1]
-                if _fightCtrl then
-                    pcall(function()
-                        local _f = _fightCtrl:GetFighter(_lp)
-                        if _f and _f.Items then
-                            for _, itm in pairs(_f.Items) do
-                                if itm:Get("ObjectID") == _oid then
-                                    _lastWep = itm.Name
-                                    break
-                                end
-                            end
-                        end
-                    end)
-                end
-            end
-
-            if self == _equipRem then
-                local _wn   = _a[1]
-                local _ct   = _a[2]
-                local _cn   = _a[3]
-                local _opts = _a[4] or {}
-                if _cn and _cn ~= "None" and _cn ~= "" then
-                    local _inv = _datCtrl:Get("CosmeticInventory")
-                    if _inv and rawget(_inv, _cn) then
-                        return _onc(self, ...)
-                    end
-                end
-                _eq[_wn] = _eq[_wn] or {}
-                if not _cn or _cn == "None" or _cn == "" then
-                    _eq[_wn][_ct] = nil
-                    if not next(_eq[_wn]) then _eq[_wn] = nil end
-                else
-                    local _cloned = _mkCosmetic(_cn, _ct, {
-                        inverted = _opts.IsInverted,
-                        favoritesOnly = _opts.OnlyUseFavorites
-                    })
-                    if _cloned then _eq[_wn][_ct] = _cloned end
-                end
-                task.defer(function()
-                    pcall(function() _datCtrl.CurrentData:Replicate("WeaponInventory") end)
-                end)
-                _saveCfg()
-                return
-            end
-
-            if self == _favRem then
-                local _cos = _cosLib.Cosmetics[_a[2]]
-                if _cos then
-                    _favs[_a[1]] = _favs[_a[1]] or {}
-                    _favs[_a[1]][_a[2]] = _a[3] or nil
-                    task.spawn(function()
-                        pcall(function() _datCtrl.CurrentData:Replicate("FavoritedCosmetics") end)
-                    end)
-                    _saveCfg()
-                end
-                return
-            end
-
-            return _onc(self, ...)
-        end)
-    end
-end
-
-local _cliItem
-pcall(function()
-    _cliItem = require(_lp.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem)
-end)
-
-if _cliItem and _cliItem._CreateViewModel then
-    local _origCVM = _cliItem._CreateViewModel
-    _cliItem._CreateViewModel = function(self, vmRef)
-        local _wn  = self.Name
-        local _wp  = self.ClientFighter and self.ClientFighter.Player
-        _buildingWep = (_wp == _lp) and _wn or nil
-        if _wp == _lp and _eq[_wn] then
-            local _dk = self:ToEnum("Data")
-            if vmRef[_dk] then
-                if _eq[_wn].Skin then
-                    vmRef[_dk][self:ToEnum("Skin")] = _eq[_wn].Skin
-                    vmRef[_dk][self:ToEnum("Name")] = _eq[_wn].Skin.Name
-                end
-                if _eq[_wn].Charm then vmRef[_dk][self:ToEnum("Charm")] = _eq[_wn].Charm end
-                if _eq[_wn].Wrap  then vmRef[_dk][self:ToEnum("Wrap")]  = _eq[_wn].Wrap  end
-            elseif vmRef.Data then
-                if _eq[_wn].Skin  then vmRef.Data.Skin  = _eq[_wn].Skin; vmRef.Data.Name = _eq[_wn].Skin.Name end
-                if _eq[_wn].Charm then vmRef.Data.Charm = _eq[_wn].Charm end
-                if _eq[_wn].Wrap  then vmRef.Data.Wrap  = _eq[_wn].Wrap  end
-            end
-        end
-        local _r = _origCVM(self, vmRef)
-        _buildingWep = nil
-        return _r
-    end
-end
-
-local _vmMod = _lp.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem:FindFirstChild("ClientViewModel")
-if _vmMod then
-    local _CVM = require(_vmMod)
-    local _origNew = _CVM.new
-    _CVM.new = function(repData, cliItm)
-        local _wp  = cliItm.ClientFighter and cliItm.ClientFighter.Player
-        local _wn  = _buildingWep or cliItm.Name
-        if _wp == _lp and _eq[_wn] then
-            local _RC  = require(_rs.Modules.ReplicatedClass)
-            local _dk  = _RC:ToEnum("Data")
-            repData[_dk] = repData[_dk] or {}
-            local _cos = _eq[_wn]
-            if _cos.Skin  then repData[_dk][_RC:ToEnum("Skin")]  = _cos.Skin  end
-            if _cos.Charm then repData[_dk][_RC:ToEnum("Charm")] = _cos.Charm end
-            if _cos.Wrap  then repData[_dk][_RC:ToEnum("Wrap")]  = _cos.Wrap  end
-        end
-        return _origNew(repData, cliItm)
-    end
-end
-    UpdateInventory()
-    Library:Notify("Unlock button pressed.", 2)
-end)
-
-TrackerGroup:AddButton("Refresh Inventory", function()
-
-end)
-
--- Silent aim tab 
--- Combat tab code
--- [your existing Combat code here]
-
-
-    -- Silent Aim tab
-
-local Configuration = {
-    Enabled = false,
-    FOV = 150,
-    MaxAngle = 30,
-    TeamCheck = true,
-    HitParts = {"Head", "UpperTorso", "HumanoidRootPart"},
-    Prediction = 0.06,
-    ShowFOV = true,
-    TargetRate = 1 / 20,
-    CacheRate = 1,
-}
-
-local Group = Tabs["Silent Aim"]:AddLeftGroupbox("Silent Aim")
-
-Group:AddToggle("SilentAimToggle", {
-    Text = "Enable",
-    Default = false,
-    Callback = function(Value)
-        Configuration.Enabled = Value
-    end
-})
-
--- [[ Rscripts Risk Notice ]]
--- This script is not verified by rscripts.net. Deal with caution.
---
--- Stay safe:
---   • Never log in on unofficial Roblox sites or lookalike domains.
---   • Real Roblox links use roblox.com (check the .com ending).
---   • Treat fake Roblox login / "claim reward" pages as phishing.
--- [[ End Rscripts Risk Notice ]]
-
--- // By scriptalua
+Library.ForceCheckbox             = false
+Library.ShowToggleFrameInKeybinds = true
 
 local Players           = game:GetService("Players")
-local Workspace         = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService        = game:GetService("RunService")
 local UserInputService  = game:GetService("UserInputService")
-local CollectionService = game:GetService("CollectionService")
+local Workspace         = game:GetService("Workspace")
+local Stats             = game:GetService("Stats")
+local Lighting          = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService       = game:GetService("HttpService")
 
-local LocalPlayer   = Players.LocalPlayer
-local CurrentCamera = Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local Camera      = workspace.CurrentCamera
 
-local Char0, Char1, Char2, Char3 = utf8.char(0), utf8.char(1), utf8.char(2), utf8.char(3)
-local Char4, Char5               = utf8.char(4), utf8.char(5)
+-- Neon purple theme colors
+local NEON_PURPLE = Color3.fromRGB(170, 0, 255)
+local NEON_PURPLE_DARK = Color3.fromRGB(100, 0, 180)
+local NEON_PURPLE_BG = Color3.fromRGB(8, 0, 15)
 
-local FighterFolder        = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Replication"):WaitForChild("Fighter")
-local UpdateState          = FighterFolder:WaitForChild("UpdateState")
-local UpdateCameraRotation = FighterFolder:WaitForChild("UpdateCameraRotation")
+local AimAssistEnabled = false
+local SilentAimEnabled = false
+local RageAimEnabled   = false
+local AutoShootEnabled = false
+local TargetLocked     = false
+local silentTargetPart = nil
+local rageTargetPart   = nil
+local silentMouse      = LocalPlayer:GetMouse()
+local lastShotTime     = 0
 
-local Utility = nil
-pcall(function()
-	Utility = require(ReplicatedStorage.Modules.Utility)
+local FlySpeed         = 50
+local SpeedValue       = 32
+local JumpPowerValue   = 100
+local ClickTPDistance  = 50
+local FlyConnection    = nil
+local NoclipConnection = nil
+local AntiAFKConnection = nil
+
+local WatermarkEnabled  = true
+local WatermarkColor    = NEON_PURPLE
+local WatermarkBG       = NEON_PURPLE_BG
+local WatermarkShowFPS  = true
+local WatermarkShowPing = true
+local WatermarkShowUser = true
+local WatermarkShowTime = false
+
+--=====================================================================
+-- Window (neon purple icon)
+--=====================================================================
+local Window = Library:CreateWindow({
+    Title            = "VYX",
+    Footer           = "version: V5.1",
+    Icon             = 6031097230, -- neon/purple themed icon
+    NotifySide       = "Right",
+    ShowCustomCursor = true,
+})
+
+-- Apply neon purple theme
+Library.Scheme = Library.Scheme or {}
+Library.Scheme.Accent = NEON_PURPLE
+Library.Scheme.Background = NEON_PURPLE_BG
+Library.Scheme.Outline = NEON_PURPLE_DARK
+Library.Scheme.FontColor = Color3.fromRGB(220, 200, 255)
+
+local Tabs = {
+    Combat          = Window:AddTab("Combat", "crosshair"),
+    ESP             = Window:AddTab("ESP", "eye"),
+    ["Player Mods"] = Window:AddTab("Player Mods", "person-standing"),
+    Watermark       = Window:AddTab("Watermark", "activity"),
+    ["Unlock All"]  = Window:AddTab("Unlock All", "unlock"),
+    Misc            = Window:AddTab("Misc", "settings-2"),
+    ["UI Settings"] = Window:AddTab("UI Settings", "settings"),
+}
+
+--=====================================================================
+-- COMBAT — organised into 3 clear groups
+--=====================================================================
+local CombatMain  = Tabs.Combat:AddLeftGroupbox("Aimbot & Silent")
+local CombatFOV   = Tabs.Combat:AddLeftGroupbox("FOV Settings")
+local CombatRage  = Tabs.Combat:AddRightGroupbox("Ragebot")
+
+-- Aimbot & Silent
+CombatMain:AddToggle("EnableAimbot", { Text = "Enable Aimbot (mouse moves to target)", Default = false })
+Toggles.EnableAimbot:OnChanged(function()
+    AimAssistEnabled = Toggles.EnableAimbot.Value
 end)
 
-local FOVCircle = nil
-pcall(function()
-	FOVCircle           = Drawing.new("Circle")
-	FOVCircle.Color     = Color3.fromRGB(125, 125, 140)
-	FOVCircle.Thickness = 1
-	FOVCircle.NumSides  = 48
-	FOVCircle.Filled    = false
+CombatMain:AddToggle("EnableSilentAim", { Text = "Enable Silent Aim (bullets redirect)", Default = false })
+Toggles.EnableSilentAim:OnChanged(function()
+    SilentAimEnabled = Toggles.EnableSilentAim.Value
 end)
 
-local Cached    = {}
-local LastCache = 0
+CombatMain:AddDropdown("AimBone", {
+    Values = { "Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "Torso", "LeftHand", "RightHand", "LeftFoot", "RightFoot", "Closest" },
+    Default = "Head", Text = "Aim Bone", Searchable = false,
+})
 
-local function IsSameTeam(character)
-	if not Configuration.TeamCheck then
-		return false
-	end
+CombatMain:AddSlider("AimSmoothness", { Text = "Snap Strength", Default = 0.5, Min = 0.1, Max = 5, Rounding = 1, Compact = true })
+CombatMain:AddSlider("SilentChance", { Text = "Silent Hit Chance %", Default = 100, Min = 0, Max = 100, Rounding = 0, Compact = true })
+CombatMain:AddToggle("TeamCheck", { Text = "Team Check", Default = true })
+CombatMain:AddToggle("VisibleCheck", { Text = "Visible Check", Default = true })
+CombatMain:AddToggle("HoldToAim", { Text = "Hold to Aim (aimbot)", Default = true })
+CombatMain:AddToggle("StickyAim", { Text = "Sticky Aim", Default = true })
+CombatMain:AddToggle("SilentWallbang", { Text = "Silent Wallbang", Default = false })
+CombatMain:AddLabel("Combat Keybind"):AddKeyPicker("CombatKey", {
+    Default = "MB2", NoUI = false, SyncToggleState = false, Mode = "Hold", Text = "Hold for combat",
+})
 
-	local player = Players:GetPlayerFromCharacter(character)
+-- FOV Settings
+CombatFOV:AddSlider("AimFOV", { Text = "Aim FOV", Default = 150, Min = 25, Max = 800, Rounding = 0, Compact = true })
+CombatFOV:AddSlider("SilentFOV", { Text = "Silent FOV", Default = 200, Min = 25, Max = 1000, Rounding = 0, Compact = true })
+CombatFOV:AddToggle("ShowFOVCircle", { Text = "Show Aim FOV Circle", Default = true })
+CombatFOV:AddToggle("ShowSilentFOV", { Text = "Show Silent FOV Circle", Default = true })
+CombatFOV:AddSlider("FOVCircleThickness", { Text = "Aim Thickness", Default = 2, Min = 1, Max = 8, Rounding = 0, Compact = true })
+CombatFOV:AddSlider("SilentFOVThickness", { Text = "Silent Thickness", Default = 1, Min = 1, Max = 8, Rounding = 0, Compact = true })
+CombatFOV:AddLabel("Aim Color"):AddColorPicker("FOVCircleColor", {
+    Default = NEON_PURPLE, Title = "Aim FOV Color",
+})
+CombatFOV:AddLabel("Silent Color"):AddColorPicker("SilentFOVColor", {
+    Default = Color3.fromRGB(0, 200, 255), Title = "Silent FOV Color",
+})
+CombatFOV:AddToggle("GlowWhenLocked", { Text = "Glow When Locked", Default = true })
 
-	if player then
-		local mine   = LocalPlayer:GetAttribute("TeamID")
-		local theirs = player:GetAttribute("TeamID")
-		if mine ~= nil and theirs ~= nil and mine == theirs then
-			return true
-		end
-
-		if LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
-			return true
-		end
-	end
-
-	return false
-end
-
-local function RefreshCache()
-	if tick() - LastCache < Configuration.CacheRate then
-		return
-	end
-
-	LastCache = tick()
-	table.clear(Cached)
-
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= LocalPlayer and plr.Character then
-			if not IsSameTeam(plr.Character) then
-				table.insert(Cached, plr.Character)
-			end
-		end
-	end
-
-	for _, model in ipairs(CollectionService:GetTagged("Entity")) do
-		if model:IsA("Model") and model ~= LocalPlayer.Character and not IsSameTeam(model) then
-			table.insert(Cached, model)
-		end
-	end
-
-	local range = Workspace:FindFirstChild("ShootingRangeEntities")
-	if range then
-		for _, model in ipairs(range:GetChildren()) do
-			if model:IsA("Model") then
-				table.insert(Cached, model)
-			end
-		end
-	end
-end
-
-
-local RayParams       = RaycastParams.new()
-RayParams.FilterType  = Enum.RaycastFilterType.Exclude
-RayParams.IgnoreWater = true
-
-local function IsVisible(from, to, char)
-	RayParams.FilterDescendantsInstances = { LocalPlayer.Character, CurrentCamera }
-
-	local hit = Workspace:Raycast(from, to - from, RayParams)
-
-	if not hit then
-		return true
-	end
-
-	return hit.Instance:IsDescendantOf(char)
-end
-
-
-local LastTarget, LastPart, LastScan = nil, nil, 0
-
-local function GetTarget()
-	if not Configuration.Enabled then
-		getgenv().__SA_Lock = false
-		if FOVCircle then
-			FOVCircle.Visible = false
-		end
-		return nil, nil
-	end
-
-	if tick() - LastScan < Configuration.TargetRate then
-		return LastTarget, LastPart
-	end
-
-	LastScan = tick()
-	RefreshCache()
-
-	local mouse   = UserInputService:GetMouseLocation()
-	local cx, cy  = mouse.X, mouse.Y
-	local camPos  = CurrentCamera.CFrame.Position
-	local camLook = CurrentCamera.CFrame.LookVector
-
-	local bestPos, bestPart, bestDist = nil, nil, Configuration.FOV
-
-	for _, model in ipairs(Cached) do
-		local hum = model:FindFirstChildOfClass("Humanoid")
-
-		if hum and hum.Health > 0 then
-			for _, name in ipairs(Configuration.HitParts) do
-				local part = model:FindFirstChild(name)
-
-				if part and part:IsA("BasePart") then
-					local vel = part.AssemblyLinearVelocity
-					local aim = vel.Magnitude > 2
-						and part.Position + vel * Configuration.Prediction
-						or  part.Position
-
-					local s, onScreen = CurrentCamera:WorldToViewportPoint(aim)
-
-					if onScreen then
-						local dx, dy = s.X - cx, s.Y - cy
-						local d = math.sqrt(dx * dx + dy * dy)
-
-						if d < bestDist then
-							local dir = (aim - camPos).Unit
-
-							if camLook:Dot(dir) > math.cos(math.rad(Configuration.MaxAngle)) then
-								if IsVisible(camPos, aim, model) then
-									bestDist = d
-									bestPos  = aim
-									bestPart = part
-								end
-							end
-						end
-					end
-
-					break
-				end
-			end
-		end
-	end
-
-	LastTarget, LastPart = bestPos, bestPart
-
-	if bestPos then
-		getgenv().__SA_Shot = { Pos = bestPos, T = tick() }
-		getgenv().__SA_Lock = true
-	else
-		getgenv().__SA_Lock = false
-	end
-
-	if FOVCircle then
-		FOVCircle.Position = Vector2.new(cx, cy)
-		FOVCircle.Radius   = Configuration.FOV
-		FOVCircle.Visible  = Configuration.ShowFOV and Configuration.Enabled
-		FOVCircle.Color    = getgenv().__SA_Lock
-			and Color3.fromRGB(255, 0, 0)
-			or  Color3.fromRGB(125, 125, 140)
-	end
-
-	return bestPos, bestPart
-end
-
-
-RunService.RenderStepped:Connect(function()
-	GetTarget()
+-- Ragebot
+CombatRage:AddToggle("EnableRage", { Text = "Enable Ragebot", Default = false })
+Toggles.EnableRage:OnChanged(function()
+    RageAimEnabled = Toggles.EnableRage.Value
 end)
 
-
-local function Encode(cf)
-	local rx, ry, rz = cf:ToOrientation()
-	return {
-		[Char0] = cf.X,
-		[Char1] = cf.Y,
-		[Char2] = cf.Z,
-		[Char3] = rx,
-		[Char4] = ry,
-		[Char5] = rz,
-	}
-end
-
-local function EncodeRot(target)
-	local rx, ry = CFrame.new(CurrentCamera.CFrame.Position, target):ToOrientation()
-
-	local ok, enc = pcall(function()
-		return Utility:EncodeCameraRotation(Vector2.new(rx, ry))
-	end)
-
-	if ok and enc then
-		return enc
-	end
-
-	local function b(v)
-		return utf8.char(math.clamp(math.floor(v % 6.2831853 / 6.2831853 * 256 + 0.5), 0, 255))
-	end
-
-	return b(rx) .. b(ry)
-end
-
-local function HookRemote(remote, fn)
-	if oth and oth.hook and oth.get_root_callback then
-		oth.hook(remote.FireServer, function(self, ...)
-			return fn(oth.get_root_callback(), self, ...)
-		end)
-	else
-		local old
-		old = hookfunction(remote.FireServer, newcclosure(function(self, ...)
-			return fn(old, self, ...)
-		end))
-	end
-end
-
-
-HookRemote(UpdateState, function(call, self, enumId, a1, a2, ...)
-	if not Configuration.Enabled then
-		return call(self, enumId, a1, a2, ...)
-	end
-
-	if type(a2) == "table" then
-		local pos, part = LastTarget, LastPart
-
-		if pos and part then
-			local ok, pcf = pcall(function()
-				return part.CFrame
-			end)
-
-			if ok then
-				local noff   = Encode(pcf:Inverse() * CFrame.new(pos))
-				local cloned = table.clone(a2)
-
-				for k, e in pairs(cloned) do
-					if type(e) == "table" and e[Char2] ~= nil then
-						local n   = table.clone(e)
-						n[Char2]  = part
-						n[Char3]  = noff
-						cloned[k] = n
-					end
-				end
-
-				return call(self, enumId, a1, cloned, ...)
-			end
-		end
-	end
-
-	return call(self, enumId, a1, a2, ...)
+CombatRage:AddToggle("RageAutoShoot", { Text = "Auto Shoot", Default = true })
+Toggles.RageAutoShoot:OnChanged(function()
+    AutoShootEnabled = Toggles.RageAutoShoot.Value
 end)
 
+CombatRage:AddDropdown("RageBone", {
+    Values = { "Head", "UpperTorso", "HumanoidRootPart", "Closest" },
+    Default = "Head", Text = "Rage Bone", Searchable = false,
+})
 
-HookRemote(UpdateCameraRotation, function(call, self, rot, ...)
-	if not Configuration.Enabled then
-		return call(self, rot, ...)
-	end
+CombatRage:AddSlider("RageFOV", { Text = "Rage FOV", Default = 400, Min = 50, Max = 1500, Rounding = 0, Compact = true })
+CombatRage:AddSlider("RageDelay", { Text = "Shot Delay (s)", Default = 0.05, Min = 0.01, Max = 1, Rounding = 2, Compact = true })
+CombatRage:AddToggle("RageTeamCheck", { Text = "Rage Team Check", Default = true })
+CombatRage:AddToggle("RageAutoFire", { Text = "Auto Fire (hold key)", Default = true })
+CombatRage:AddToggle("RageSilent", { Text = "Silent Mode (bullets to target)", Default = true })
+CombatRage:AddLabel("Rage Keybind"):AddKeyPicker("RageKey", {
+    Default = "MB2", NoUI = false, SyncToggleState = false, Mode = "Hold", Text = "Hold to rage",
+})
 
-	local s = getgenv().__SA_Shot
+--=====================================================================
+-- ESP
+--=====================================================================
+local ESPBoxesGroup     = Tabs.ESP:AddLeftGroupbox("Box ESP")
+local ESPNamesGroup     = Tabs.ESP:AddLeftGroupbox("Name ESP")
+local ESPHealthGroup    = Tabs.ESP:AddLeftGroupbox("Health ESP")
+local ESPTracerGroup    = Tabs.ESP:AddRightGroupbox("Tracers")
+local ESPHighlightGroup = Tabs.ESP:AddRightGroupbox("Highlight")
+local ESPSkeletonGroup  = Tabs.ESP:AddRightGroupbox("Skeleton")
+local ESPExtrasGroup    = Tabs.ESP:AddRightGroupbox("Extras")
 
-	if s and tick() - s.T < 0.5 and rot ~= nil then
-		rot = EncodeRot(s.Pos)
-	end
+ESPBoxesGroup:AddToggle("ESPBoxes", { Text = "Enable Box ESP", Default = false })
+ESPBoxesGroup:AddLabel("Box Color"):AddColorPicker("ESPBoxColor", {
+    Default = NEON_PURPLE, Title = "Box Color",
+})
+ESPBoxesGroup:AddSlider("ESPBoxThickness", { Text = "Box Thickness", Default = 1, Min = 1, Max = 5, Rounding = 0, Compact = true })
+ESPNamesGroup:AddToggle("ESPNames", { Text = "Enable Name ESP", Default = false })
+ESPNamesGroup:AddLabel("Name Color"):AddColorPicker("ESPNameColor", {
+    Default = Color3.fromRGB(255, 255, 255), Title = "Name Color",
+})
+ESPNamesGroup:AddSlider("ESPNameSize", { Text = "Text Size", Default = 14, Min = 8, Max = 24, Rounding = 0, Compact = true })
+ESPHealthGroup:AddToggle("ESPHealth", { Text = "Enable Health ESP", Default = false })
+ESPHealthGroup:AddToggle("ESPHealthBar", { Text = "Health Bar", Default = false })
+ESPTracerGroup:AddToggle("ESPTracers", { Text = "Enable Tracers", Default = false })
+ESPTracerGroup:AddLabel("Tracer Color"):AddColorPicker("ESPTracerColor", {
+    Default = NEON_PURPLE, Title = "Tracer Color",
+})
+ESPTracerGroup:AddSlider("ESPTracerThickness", { Text = "Thickness", Default = 1, Min = 1, Max = 5, Rounding = 0, Compact = true })
+ESPHighlightGroup:AddToggle("ESPHighlight", { Text = "Enable Highlight", Default = false })
+ESPHighlightGroup:AddLabel("Highlight Color"):AddColorPicker("ESPHighlightColor", {
+    Default = NEON_PURPLE, Title = "Highlight Color",
+})
+ESPSkeletonGroup:AddToggle("ESPSkeleton", { Text = "Enable Skeleton ESP", Default = false })
+ESPSkeletonGroup:AddLabel("Skeleton Color"):AddColorPicker("ESPSkeletonColor", {
+    Default = Color3.fromRGB(255, 255, 255), Title = "Skeleton Color",
+})
+ESPExtrasGroup:AddToggle("ESPDistance", { Text = "Show Distance", Default = false })
 
-	return call(self, rot, ...)
+--=====================================================================
+-- Player Mods
+--=====================================================================
+local MoveGroup   = Tabs["Player Mods"]:AddLeftGroupbox("Movement")
+local JumpGroup   = Tabs["Player Mods"]:AddLeftGroupbox("Jump")
+local FlyGroup    = Tabs["Player Mods"]:AddRightGroupbox("Fly")
+local MiscPMGroup = Tabs["Player Mods"]:AddRightGroupbox("Misc")
+
+MoveGroup:AddToggle("SpeedEnabled", { Text = "Speed Hack", Default = false })
+Toggles.SpeedEnabled:OnChanged(function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        char.Humanoid.WalkSpeed = Toggles.SpeedEnabled.Value and SpeedValue or 16
+    end
+end)
+MoveGroup:AddSlider("SpeedValue", { Text = "Walk Speed", Default = 32, Min = 16, Max = 500, Rounding = 0, Compact = true })
+Options.SpeedValue:OnChanged(function()
+    SpeedValue = Options.SpeedValue.Value
+    if Toggles.SpeedEnabled.Value then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then char.Humanoid.WalkSpeed = SpeedValue end
+    end
 end)
 
--- UI Settings / ThemeManager
+MoveGroup:AddToggle("NoclipEnabled", { Text = "Noclip", Default = false })
+Toggles.NoclipEnabled:OnChanged(function()
+    if NoclipConnection then NoclipConnection:Disconnect() NoclipConnection = nil end
+    if Toggles.NoclipEnabled.Value then
+        local function clearCollide(char)
+            if not char then return end
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end
+        local char = LocalPlayer.Character
+        if char then clearCollide(char) end
+        NoclipConnection = char and char.DescendantAdded:Connect(function(desc)
+            if desc:IsA("BasePart") then
+                task.defer(function() pcall(function() desc.CanCollide = false end) end)
+            end
+        end)
+    end
+end)
+
+MoveGroup:AddToggle("ClickTPEnabled", { Text = "Click Teleport", Default = false })
+MoveGroup:AddSlider("ClickTPDistance", { Text = "Max TP Distance", Default = 50, Min = 10, Max = 500, Rounding = 0, Compact = true })
+Options.ClickTPDistance:OnChanged(function()
+    ClickTPDistance = Options.ClickTPDistance.Value
+end)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if Toggles.ClickTPEnabled.Value and input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mouse = LocalPlayer:GetMouse()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") and mouse.Hit then
+            local target = mouse.Hit.Position
+            local hrp = char.HumanoidRootPart
+            if (target - hrp.Position).Magnitude <= ClickTPDistance then
+                hrp.CFrame = CFrame.new(target + Vector3.new(0, 3, 0))
+            end
+        end
+    end
+end)
+
+JumpGroup:AddToggle("JumpPowerEnabled", { Text = "Jump Power Override", Default = false })
+Toggles.JumpPowerEnabled:OnChanged(function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        char.Humanoid.UseJumpPower = true
+        char.Humanoid.JumpPower = Toggles.JumpPowerEnabled.Value and JumpPowerValue or 50
+    end
+end)
+JumpGroup:AddSlider("JumpPowerValue", { Text = "Jump Power", Default = 100, Min = 50, Max = 500, Rounding = 0, Compact = true })
+Options.JumpPowerValue:OnChanged(function()
+    JumpPowerValue = Options.JumpPowerValue.Value
+    if Toggles.JumpPowerEnabled.Value then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then char.Humanoid.JumpPower = JumpPowerValue end
+    end
+end)
+JumpGroup:AddToggle("InfJumpEnabled", { Text = "Infinite Jump", Default = false })
+UserInputService.JumpRequest:Connect(function()
+    if Toggles.InfJumpEnabled.Value then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+FlyGroup:AddToggle("FlyEnabled", { Text = "Fly", Default = false })
+Toggles.FlyEnabled:OnChanged(function()
+    if FlyConnection then FlyConnection:Disconnect() FlyConnection = nil end
+    if Toggles.FlyEnabled.Value then
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.P = 9e4
+        bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bodyGyro.CFrame = hrp.CFrame
+        bodyGyro.Parent = hrp
+        local bodyVel = Instance.new("BodyVelocity")
+        bodyVel.Velocity = Vector3.zero
+        bodyVel.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        bodyVel.Parent = hrp
+        FlyConnection = RunService.RenderStepped:Connect(function()
+            local hrp2 = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp2 or not bodyGyro.Parent then return end
+            local move = Vector3.zero
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0, 1, 0) end
+            bodyVel.Velocity = move * FlySpeed
+            bodyGyro.CFrame = Camera.CFrame
+        end)
+        _G.__VYX_FlyBodyGyro = bodyGyro
+        _G.__VYX_FlyBodyVel = bodyVel
+    else
+        if _G.__VYX_FlyBodyGyro then pcall(function() _G.__VYX_FlyBodyGyro:Destroy() end) end
+        if _G.__VYX_FlyBodyVel then pcall(function() _G.__VYX_FlyBodyVel:Destroy() end) end
+        _G.__VYX_FlyBodyGyro = nil
+        _G.__VYX_FlyBodyVel = nil
+    end
+end)
+FlyGroup:AddSlider("FlySpeedValue", { Text = "Fly Speed", Default = 50, Min = 10, Max = 500, Rounding = 0, Compact = true })
+Options.FlySpeedValue:OnChanged(function() FlySpeed = Options.FlySpeedValue.Value end)
+
+MiscPMGroup:AddToggle("AntiAFK", { Text = "Anti-AFK", Default = true })
+Toggles.AntiAFK:OnChanged(function()
+    if Toggles.AntiAFK.Value then
+        if not AntiAFKConnection then
+            AntiAFKConnection = LocalPlayer.Idled:Connect(function()
+                local vu = game:GetService("VirtualUser")
+                vu:CaptureController()
+                vu:ClickButton2(Vector2.new())
+            end)
+        end
+    else
+        if AntiAFKConnection then AntiAFKConnection:Disconnect() AntiAFKConnection = nil end
+    end
+end)
+
+MiscPMGroup:AddToggle("Fullbright", { Text = "Fullbright", Default = false })
+Toggles.Fullbright:OnChanged(function()
+    if Toggles.Fullbright.Value then
+        Lighting.Brightness = 5
+        Lighting.ClockTime = 12
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+        Lighting.OutdoorAmbient = Color3.fromRGB(180, 180, 180)
+    else
+        Lighting.Brightness = 2
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = true
+        Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    end
+end)
+
+MiscPMGroup:AddButton("Reset Character", function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then char.Humanoid.Health = 0 end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    if Toggles.SpeedEnabled.Value then hum.WalkSpeed = SpeedValue end
+    if Toggles.JumpPowerEnabled.Value then
+        hum.UseJumpPower = true
+        hum.JumpPower = JumpPowerValue
+    end
+end)
+
+--=====================================================================
+-- Watermark
+--=====================================================================
+local WMGroup  = Tabs.Watermark:AddLeftGroupbox("Watermark")
+local WMColors = Tabs.Watermark:AddRightGroupbox("Colors")
+
+WMGroup:AddToggle("WatermarkEnabled", { Text = "Show Watermark", Default = true })
+Toggles.WatermarkEnabled:OnChanged(function() WatermarkEnabled = Toggles.WatermarkEnabled.Value end)
+WMGroup:AddToggle("WMFPS", { Text = "Show FPS", Default = true })
+Toggles.WMFPS:OnChanged(function() WatermarkShowFPS = Toggles.WMFPS.Value end)
+WMGroup:AddToggle("WMPing", { Text = "Show Ping", Default = true })
+Toggles.WMPing:OnChanged(function() WatermarkShowPing = Toggles.WMPing.Value end)
+WMGroup:AddToggle("WMUser", { Text = "Show Username", Default = true })
+Toggles.WMUser:OnChanged(function() WatermarkShowUser = Toggles.WMUser.Value end)
+WMGroup:AddToggle("WMTime", { Text = "Show Time", Default = false })
+Toggles.WMTime:OnChanged(function() WatermarkShowTime = Toggles.WMTime.Value end)
+
+WMColors:AddLabel("Text Color"):AddColorPicker("WMColor", {
+    Default = NEON_PURPLE, Title = "Watermark Text Color",
+})
+Options.WMColor:OnChanged(function() WatermarkColor = Options.WMColor.Value end)
+WMColors:AddLabel("Background Color"):AddColorPicker("WMBG", {
+    Default = NEON_PURPLE_BG, Title = "Watermark BG Color",
+})
+Options.WMBG:OnChanged(function() WatermarkBG = Options.WMBG.Value end)
+
+--=====================================================================
+-- Unlock All (deferred)
+--=====================================================================
+local UnlockGroup = Tabs["Unlock All"]:AddLeftGroupbox("Unlock All")
+local UnlockInfo  = Tabs["Unlock All"]:AddRightGroupbox("Info")
+
+local UnlockState = { Active = false }
+
+local function _runFullUnlockAll()
+    local _plrs     = Players
+    local _rs       = ReplicatedStorage
+    local _lp       = _plrs.LocalPlayer
+    local _pscripts = _lp.PlayerScripts
+    local _ctrl     = _pscripts:WaitForChild("Controllers", 10)
+    local _mods     = _rs:WaitForChild("Modules", 10)
+    if not _mods or not _ctrl then error("Not in Rivals") end
+
+    coroutine.wrap(function()
+        pcall(function()
+            local _stbl
+            _stbl = hookfunction(getrenv().setmetatable, newcclosure(function(tbl, mt)
+                if mt and typeof(mt) == "table" and rawget(mt, "__mode") == "kv" then
+                    local tr = debug.traceback()
+                    if tr:find("MiscellaneousController") then
+                        return _stbl({1,2,3}, {})
+                    end
+                end
+                return _stbl(tbl, mt)
+            end))
+        end)
+        pcall(function()
+            local _tags = {"anticheat","ac","detection","ban","kick","security","moderation"}
+            local function _proc(o)
+                pcall(function()
+                    if o:IsA("LocalScript") or o:IsA("ModuleScript") then
+                        local _s, nm = pcall(function() return o.Name:lower() end)
+                        if not _s or not nm then return end
+                        for _i = 1, #_tags do
+                            if nm:find(_tags[_i]) then
+                                pcall(function() o.Disabled = true end)
+                                break
+                            end
+                        end
+                    end
+                end)
+            end
+            local _desc = game:GetDescendants()
+            local _n = 0
+            for _i = 1, #_desc do
+                _proc(_desc[_i])
+                _n = _n + 1
+                if _n % 500 == 0 then task.wait() end
+            end
+            pcall(function() game.DescendantAdded:Connect(_proc) end)
+        end)
+        pcall(function()
+            local _rf = game:GetService("ReplicatedFirst")
+            local _tgt = _rf:WaitForChild("LocalScript3", 10)
+            local _gc = getgc(false)
+            for _i = 1, #_gc do
+                local _fn = _gc[_i]
+                if type(_fn) ~= "function" then continue end
+                local _ok1, _env = pcall(getfenv, _fn)
+                if not _ok1 or type(_env) ~= "table" then continue end
+                local _ok2, _scr = pcall(function() return rawget(_env, "script") end)
+                if not _ok2 or not _scr or typeof(_scr) ~= "Instance" then continue end
+                local _ok3, _ss = pcall(tostring, _scr)
+                if not _ok3 then continue end
+                if not (_scr == _tgt or (type(_ss) == "string" and _ss:find("LoadingScreen"))) then continue end
+                local _ok4, _consts = pcall(debug.getconstants, _fn)
+                if not _ok4 or type(_consts) ~= "table" then continue end
+                for _j = 1, #_consts do
+                    local _c = _consts[_j]
+                    if type(_c) == "string" and (_c:find("TakeTheL") or _c:find("ban") or _c:find("kick")) then
+                        pcall(function() hookfunction(_fn, function() end) end)
+                        break
+                    end
+                end
+                if _i % 500 == 0 then task.wait() end
+            end
+        end)
+    end)()
+
+    local _enumLib = require(_mods:WaitForChild("EnumLibrary", 10))
+    if _enumLib then pcall(function() _enumLib:WaitForEnumBuilder() end) end
+    local _cosLib  = require(_mods:WaitForChild("CosmeticLibrary", 10))
+    local _datCtrl = require(_ctrl:WaitForChild("PlayerDataController", 10))
+
+    local _eq, _favs = {}, {}
+    local _buildingWep = nil
+    local _cosTypes = {"Skin","Wrap","Charm","Dance","Emote"}
+    local function _isCosType(cosObj)
+        if not cosObj then return false end
+        for _, t in ipairs(_cosTypes) do
+            if cosObj.Type == t then return true end
+        end
+        return false
+    end
+
+    local function _mkCosmetic(nm, ctype, opts)
+        local _base = _cosLib.Cosmetics[nm]
+        if not _base then return nil end
+        local _d = {}
+        for k, v in pairs(_base) do _d[k] = v end
+        _d.Name = nm
+        _d.Type = _d.Type or ctype
+        _d.Seed = _d.Seed or math.random(1, 1000000)
+        if _enumLib then
+            local _s, _eid = pcall(_enumLib.ToEnum, _enumLib, nm)
+            if _s and _eid then
+                _d.Enum = _eid
+                _d.ObjectID = _d.ObjectID or _eid
+            end
+        end
+        if opts then
+            if opts.inverted ~= nil then _d.Inverted = opts.inverted end
+            if opts.favoritesOnly ~= nil then _d.OnlyUseFavorites = opts.favoritesOnly end
+        end
+        return _d
+    end
+
+    local _cfgFile = "rivals_unlocker_config.json"
+    local _saveLock = false
+    local function _stripForSave()
+        local _out = {}
+        for wn, cos in pairs(_eq) do
+            _out[wn] = {}
+            for ct, cd in pairs(cos) do
+                if cd and cd.Name then
+                    _out[wn][ct] = {Name = cd.Name, Inverted = cd.Inverted, OnlyUseFavorites = cd.OnlyUseFavorites}
+                end
+            end
+        end
+        return {equipped = _out, favorites = _favs}
+    end
+    if isfile and readfile then
+        pcall(function()
+            if isfile(_cfgFile) then
+                local _raw = readfile(_cfgFile)
+                if _raw and _raw ~= "" then
+                    local _dec = HttpService:JSONDecode(_raw)
+                    if _dec.favorites then _favs = _dec.favorites end
+                    if _dec.equipped then
+                        for wn, cos in pairs(_dec.equipped) do
+                            _eq[wn] = {}
+                            for ct, sd in pairs(cos) do
+                                if sd and sd.Name and _cosLib.Cosmetics[sd.Name] then
+                                    local _cloned = _mkCosmetic(sd.Name, ct, {
+                                        inverted = sd.Inverted, favoritesOnly = sd.OnlyUseFavorites
+                                    })
+                                    if _cloned then _eq[wn][ct] = _cloned end
+                                end
+                            end
+                            if not next(_eq[wn]) then _eq[wn] = nil end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+    local function _saveCfg()
+        if not writefile or _saveLock then return end
+        _saveLock = true
+        task.spawn(function()
+            task.wait(1)
+            local _ok, _enc = pcall(HttpService.JSONEncode, HttpService, _stripForSave())
+            if _ok then pcall(writefile, _cfgFile, _enc) end
+            _saveLock = false
+        end)
+    end
+
+    _cosLib.OwnsCosmeticNormally = function(self, inv, nm, wep)
+        local c = _cosLib.Cosmetics[nm]
+        if c and c.Type == "Skin" then return true end
+        return false
+    end
+    _cosLib.OwnsCosmeticUniversally = function(self, inv, nm, wep)
+        local c = _cosLib.Cosmetics[nm]
+        if c and c.Type == "Skin" then return true end
+        return false
+    end
+    _cosLib.OwnsCosmeticForWeapon = function(self, inv, nm, wep)
+        local c = _cosLib.Cosmetics[nm]
+        if c and c.Type == "Skin" then return true end
+        return false
+    end
+    local _origOwns = _cosLib.OwnsCosmetic
+    _cosLib.OwnsCosmetic = function(self, inv, nm, wep)
+        if nm:find("MISSING_") or nm == "Bubble Gun" then
+            return _origOwns(self, inv, nm, wep)
+        end
+        local c = _cosLib.Cosmetics[nm]
+        if c and _isCosType(c) then return true end
+        return _origOwns(self, inv, nm, wep)
+    end
+
+    local _origGet = _datCtrl.Get
+    _datCtrl.Get = function(self, key)
+        local _val = _origGet(self, key)
+        if key == "CosmeticInventory" then
+            local _prx = {}
+            if _val then
+                for k, v in pairs(_val) do
+                    local c = _cosLib.Cosmetics[k]
+                    if c and _isCosType(c) then _prx[k] = v end
+                end
+            end
+            return setmetatable(_prx, {
+                __index = function(t, k)
+                    local c = _cosLib.Cosmetics[k]
+                    if c and _isCosType(c) then return true end
+                end
+            })
+        end
+        if key == "FavoritedCosmetics" then
+            local _res = _val and table.clone(_val) or {}
+            for wep, fv in pairs(_favs) do
+                _res[wep] = _res[wep] or {}
+                for nm, isFav in pairs(fv) do
+                    local c = _cosLib.Cosmetics[nm]
+                    if c and _isCosType(c) then _res[wep][nm] = isFav end
+                end
+            end
+            return _res
+        end
+        return _val
+    end
+
+    local _origGetWep = _datCtrl.GetWeaponData
+    _datCtrl.GetWeaponData = function(self, wn)
+        local _d = _origGetWep(self, wn)
+        if not _d then return nil end
+        local _m = {}
+        for k, v in pairs(_d) do _m[k] = v end
+        _m.Name = wn
+        if _eq[wn] then
+            for ct, cd in pairs(_eq[wn]) do _m[ct] = cd end
+        end
+        return _m
+    end
+
+    local _fightCtrl
+    pcall(function()
+        _fightCtrl = require(_ctrl:WaitForChild("FighterController", 10))
+    end)
+
+    if hookmetamethod then
+        local _remotes   = _rs:FindFirstChild("Remotes")
+        local _dataRem   = _remotes and _remotes:FindFirstChild("Data")
+        local _equipRem  = _dataRem and _dataRem:FindFirstChild("EquipCosmetic")
+        local _favRem    = _dataRem and _dataRem:FindFirstChild("FavoriteCosmetic")
+        if _equipRem then
+            local _onc
+            _onc = hookmetamethod(game, "__namecall", function(self, ...)
+                if getnamecallmethod() ~= "FireServer" then
+                    return _onc(self, ...)
+                end
+                local _a = {...}
+                if self == _equipRem then
+                    local _wn, _ct, _cn = _a[1], _a[2], _a[3]
+                    local _opts = _a[4] or {}
+                    if _cn and _cn ~= "None" and _cn ~= "" then
+                        local _inv = _datCtrl:Get("CosmeticInventory")
+                        if _inv and rawget(_inv, _cn) then
+                            return _onc(self, ...)
+                        end
+                    end
+                    _eq[_wn] = _eq[_wn] or {}
+                    if not _cn or _cn == "None" or _cn == "" then
+                        _eq[_wn][_ct] = nil
+                        if not next(_eq[_wn]) then _eq[_wn] = nil end
+                    else
+                        local _cloned = _mkCosmetic(_cn, _ct, {
+                            inverted = _opts.IsInverted, favoritesOnly = _opts.OnlyUseFavorites
+                        })
+                        if _cloned then _eq[_wn][_ct] = _cloned end
+                    end
+                    task.defer(function()
+                        pcall(function() _datCtrl.CurrentData:Replicate("WeaponInventory") end)
+                    end)
+                    _saveCfg()
+                    return
+                end
+                if self == _favRem then
+                    local _cos = _cosLib.Cosmetics[_a[2]]
+                    if _cos then
+                        _favs[_a[1]] = _favs[_a[1]] or {}
+                        _favs[_a[1]][_a[2]] = _a[3] or nil
+                        task.spawn(function()
+                            pcall(function() _datCtrl.CurrentData:Replicate("FavoritedCosmetics") end)
+                        end)
+                        _saveCfg()
+                    end
+                    return
+                end
+                return _onc(self, ...)
+            end)
+        end
+    end
+
+    local _cliItem
+    pcall(function()
+        _cliItem = require(_lp.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem)
+    end)
+
+    if _cliItem and _cliItem._CreateViewModel then
+        local _origCVM = _cliItem._CreateViewModel
+        _cliItem._CreateViewModel = function(self, vmRef)
+            local _wn = self.Name
+            local _wp = self.ClientFighter and self.ClientFighter.Player
+            _buildingWep = (_wp == _lp) and _wn or nil
+            if _wp == _lp and _eq[_wn] then
+                local _dk = self:ToEnum("Data")
+                if vmRef[_dk] then
+                    if _eq[_wn].Skin then
+                        vmRef[_dk][self:ToEnum("Skin")] = _eq[_wn].Skin
+                        vmRef[_dk][self:ToEnum("Name")] = _eq[_wn].Skin.Name
+                    end
+                    if _eq[_wn].Charm then vmRef[_dk][self:ToEnum("Charm")] = _eq[_wn].Charm end
+                    if _eq[_wn].Wrap  then vmRef[_dk][self:ToEnum("Wrap")]  = _eq[_wn].Wrap  end
+                elseif vmRef.Data then
+                    if _eq[_wn].Skin  then vmRef.Data.Skin = _eq[_wn].Skin; vmRef.Data.Name = _eq[_wn].Skin.Name end
+                    if _eq[_wn].Charm then vmRef.Data.Charm = _eq[_wn].Charm end
+                    if _eq[_wn].Wrap  then vmRef.Data.Wrap  = _eq[_wn].Wrap  end
+                end
+            end
+            local _r = _origCVM(self, vmRef)
+            _buildingWep = nil
+            return _r
+        end
+    end
+
+    local _vmMod = _lp.PlayerScripts.Modules.ClientReplicatedClasses.ClientFighter.ClientItem:FindFirstChild("ClientViewModel")
+    if _vmMod then
+        local _CVM = require(_vmMod)
+        local _origNew = _CVM.new
+        _CVM.new = function(repData, cliItm)
+            local _wp = cliItm.ClientFighter and cliItm.ClientFighter.Player
+            local _wn = _buildingWep or cliItm.Name
+            if _wp == _lp and _eq[_wn] then
+                local _RC = require(_rs.Modules.ReplicatedClass)
+                local _dk = _RC:ToEnum("Data")
+                repData[_dk] = repData[_dk] or {}
+                local _cos = _eq[_wn]
+                if _cos.Skin  then repData[_dk][_RC:ToEnum("Skin")]  = _cos.Skin  end
+                if _cos.Charm then repData[_dk][_RC:ToEnum("Charm")] = _cos.Charm end
+                if _cos.Wrap  then repData[_dk][_RC:ToEnum("Wrap")]  = _cos.Wrap  end
+            end
+            return _origNew(repData, cliItm)
+        end
+    end
+end
+
+UnlockGroup:AddButton("Enable Unlock All", function()
+    if UnlockState.Active then
+        Library:Notify("Unlock All is already active", 2)
+        return
+    end
+    Library:Notify("Enabling Unlock All — may take 5-15 seconds...", 4)
+    task.spawn(function()
+        local ok, err = pcall(_runFullUnlockAll)
+        if ok then
+            UnlockState.Active = true
+            Library:Notify("Unlock All ENABLED", 4)
+        else
+            Library:Notify("Failed: " .. tostring(err), 8)
+        end
+    end)
+end)
+
+UnlockInfo:AddLabel(
+    "Client-side cosmetic unlock. Hooks:\n" ..
+    "• CosmeticLibrary (ownership)\n" ..
+    "• PlayerDataController (inventory)\n" ..
+    "• EquipCosmetic remote\n" ..
+    "• ViewModel renderer\n" ..
+    "• AC setmetatable + loading screen\n\n" ..
+    "Enable only if you accept the ban risk.",
+    true
+)
+
+--=====================================================================
+-- Misc
+--=====================================================================
+local MiscGroup  = Tabs.Misc:AddLeftGroupbox("Misc Cheats")
+local MiscGroup2 = Tabs.Misc:AddRightGroupbox("Visual Misc")
+
+MiscGroup:AddButton("Rejoin Server", function()
+    game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
+end)
+
+MiscGroup:AddToggle("AntiRagdoll", { Text = "Anti Ragdoll", Default = false })
+Toggles.AntiRagdoll:OnChanged(function()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, not Toggles.AntiRagdoll.Value)
+end)
+
+MiscGroup:AddToggle("AntiFling", { Text = "Anti Fling", Default = false })
+Toggles.AntiFling:OnChanged(function()
+    if Toggles.AntiFling.Value then
+        local char = LocalPlayer.Character
+        if char then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then pcall(function()
+                hrp.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5, 1, 1)
+            end) end
+        end
+    end
+end)
+
+MiscGroup2:AddToggle("RemoveFog", { Text = "Remove Fog", Default = false })
+Toggles.RemoveFog:OnChanged(function()
+    if Toggles.RemoveFog.Value then
+        Lighting.FogEnd = 100000
+        Lighting.FogStart = 0
+    else
+        Lighting.FogEnd = 10000
+        Lighting.FogStart = 0
+    end
+end)
+
+MiscGroup2:AddToggle("NoParticles", { Text = "Remove Particles", Default = false })
+Toggles.NoParticles:OnChanged(function()
+    if not Toggles.NoParticles.Value then return end
+    task.spawn(function()
+        local count = 0
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("ParticleEmitter") or obj:IsA("Smoke")
+                or obj:IsA("Fire") or obj:IsA("Sparkles")
+                or obj:IsA("Trail") or obj:IsA("Beam") then
+                pcall(function() obj.Enabled = false end)
+            end
+            count = count + 1
+            if count % 500 == 0 then task.wait() end
+        end
+        Library:Notify("Particles removed", 2)
+    end)
+end)
+
+--=====================================================================
+-- FOV visuals (neon purple)
+--=====================================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "VYX_FOV"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder = 999
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local FOVCircle = Instance.new("Frame")
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.BorderSizePixel = 0
+FOVCircle.Visible = false
+FOVCircle.ZIndex = 999
+FOVCircle.Parent = ScreenGui
+local Corner = Instance.new("UICorner") Corner.CornerRadius = UDim.new(1,0) Corner.Parent = FOVCircle
+local Stroke = Instance.new("UIStroke") Stroke.Color = NEON_PURPLE Stroke.Thickness = 2 Stroke.Parent = FOVCircle
+
+local SilentCircle = Instance.new("Frame")
+SilentCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+SilentCircle.BackgroundTransparency = 1
+SilentCircle.BorderSizePixel = 0
+SilentCircle.Visible = false
+SilentCircle.ZIndex = 998
+SilentCircle.Parent = ScreenGui
+local SilentCorner = Instance.new("UICorner") SilentCorner.CornerRadius = UDim.new(1,0) SilentCorner.Parent = SilentCircle
+local SilentStroke = Instance.new("UIStroke") SilentStroke.Color = Color3.fromRGB(0,200,255) SilentStroke.Thickness = 1 SilentStroke.Transparency = 0.3 SilentStroke.Parent = SilentCircle
+
+local RageCircle = Instance.new("Frame")
+RageCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+RageCircle.BackgroundTransparency = 1
+RageCircle.BorderSizePixel = 0
+RageCircle.Visible = false
+RageCircle.ZIndex = 997
+RageCircle.Parent = ScreenGui
+local RageCorner = Instance.new("UICorner") RageCorner.CornerRadius = UDim.new(1,0) RageCorner.Parent = RageCircle
+local RageStroke = Instance.new("UIStroke") RageStroke.Color = NEON_PURPLE RageStroke.Thickness = 2 RageStroke.Transparency = 0.2 RageStroke.Parent = RageCircle
+
+--=====================================================================
+-- Watermark GUI (neon purple)
+--=====================================================================
+local WatermarkGui = Instance.new("ScreenGui")
+WatermarkGui.Name = "VYX_Watermark"
+WatermarkGui.ResetOnSpawn = false
+WatermarkGui.IgnoreGuiInset = true
+WatermarkGui.DisplayOrder = 997
+WatermarkGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local WMFrame = Instance.new("Frame")
+WMFrame.Size = UDim2.new(0, 320, 0, 30)
+WMFrame.Position = UDim2.new(0, 10, 0, 10)
+WMFrame.BackgroundColor3 = NEON_PURPLE_BG
+WMFrame.BackgroundTransparency = 0.2
+WMFrame.BorderSizePixel = 0
+WMFrame.Parent = WatermarkGui
+
+local WMStroke = Instance.new("UIStroke")
+WMStroke.Color = NEON_PURPLE
+WMStroke.Thickness = 1
+WMStroke.Transparency = 0.3
+WMStroke.Parent = WMFrame
+
+local WMText = Instance.new("TextLabel")
+WMText.Size = UDim2.new(1, -10, 1, 0)
+WMText.Position = UDim2.new(0, 5, 0, 0)
+WMText.BackgroundTransparency = 1
+WMText.Text = "VYX"
+WMText.TextColor3 = NEON_PURPLE
+WMText.TextSize = 14
+WMText.Font = Enum.Font.Code
+WMText.TextXAlignment = Enum.TextXAlignment.Left
+WMText.Parent = WMFrame
+
+local fpsFrames, fpsAccum, fpsCurrent = 0, 0, 60
+local lastWMUpdate = 0
+
+RunService.RenderStepped:Connect(function(dt)
+    fpsFrames = fpsFrames + 1
+    fpsAccum = fpsAccum + dt
+    if fpsAccum >= 0.5 then
+        fpsCurrent = math.floor(fpsFrames / fpsAccum)
+        fpsFrames = 0
+        fpsAccum = 0
+    end
+    if not WatermarkEnabled then WMFrame.Visible = false return end
+    WMFrame.Visible = true
+    WMStroke.Color = WatermarkColor
+    WMFrame.BackgroundColor3 = WatermarkBG
+    lastWMUpdate = lastWMUpdate + dt
+    if lastWMUpdate >= 0.5 then
+        lastWMUpdate = 0
+        local parts = { "VYX" }
+        if WatermarkShowFPS then table.insert(parts, "FPS: " .. fpsCurrent) end
+        if WatermarkShowPing then
+            local ok, ping = pcall(function()
+                return math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+            end)
+            table.insert(parts, "Ping: " .. (ok and ping or 0) .. "ms")
+        end
+        if WatermarkShowUser then table.insert(parts, LocalPlayer.Name) end
+        if WatermarkShowTime then table.insert(parts, os.date("%H:%M:%S")) end
+        WMText.Text = table.concat(parts, " | ")
+        WMText.TextColor3 = WatermarkColor
+    end
+end)
+
+--=====================================================================
+-- Helpers
+--=====================================================================
+local function safeValue(option, fallback)
+    if option and option.Value ~= nil then return option.Value end
+    return fallback
+end
+local function isAlive(character)
+    if not character then return false end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    return humanoid and humanoid.Health > 0
+end
+local function isEnemy(player, checkKey)
+    if player == LocalPlayer then return false end
+    local toggle = Toggles[checkKey]
+    if toggle and not toggle.Value then return true end
+    if LocalPlayer.Team and player.Team then return LocalPlayer.Team ~= player.Team end
+    return true
+end
+local function isVisible(part, checkKey)
+    local toggle = Toggles[checkKey]
+    if toggle and not toggle.Value then return true end
+    local character = LocalPlayer.Character
+    if not character then return false end
+    local origin = Camera.CFrame.Position
+    local direction = part.Position - origin
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = { character }
+    local result = workspace:Raycast(origin, direction, params)
+    return result and result.Instance:IsDescendantOf(part.Parent) or false
+end
+local function getBonePart(character, boneName)
+    if not character then return nil end
+    if boneName == "Closest" then
+        local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        local parts = {"Head", "UpperTorso", "LowerTorso", "HumanoidRootPart", "Torso"}
+        local best, bestDist = nil, math.huge
+        for _, name in ipairs(parts) do
+            local p = character:FindFirstChild(name)
+            if p and p:IsA("BasePart") then
+                local sp, on = Camera:WorldToViewportPoint(p.Position)
+                if on then
+                    local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                    if d < bestDist then bestDist = d best = p end
+                end
+            end
+        end
+        return best
+    end
+    return character:FindFirstChild(boneName)
+end
+
+--=====================================================================
+-- Target acquisition
+--=====================================================================
+local stickyTarget = nil
+local function getClosestTarget()
+    local boneName = safeValue(Options.AimBone, "Head")
+    if safeValue(Options.StickyAim, true) and stickyTarget then
+        local stillValid = stickyTarget and stickyTarget.Parent
+            and stickyTarget.Parent:FindFirstChildOfClass("Humanoid")
+            and stickyTarget.Parent.Humanoid.Health > 0
+        if stillValid then
+            local viewport = Camera.ViewportSize
+            local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+            local radius = safeValue(Options.AimFOV, 150)
+            local screenPos, onScreen = Camera:WorldToViewportPoint(stickyTarget.Position)
+            if onScreen then
+                local d = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                if d <= radius * 1.3 and isVisible(stickyTarget, "VisibleCheck") then
+                    return stickyTarget
+                end
+            end
+        end
+        stickyTarget = nil
+    end
+    local viewport = Camera.ViewportSize
+    local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+    local radius = safeValue(Options.AimFOV, 150)
+    local closestPart, closestDistance = nil, radius
+    for _, player in ipairs(Players:GetPlayers()) do
+        if isEnemy(player, "TeamCheck") then
+            local character = player.Character
+            if isAlive(character) then
+                local part = getBonePart(character, boneName)
+                if part and part:IsA("BasePart") then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local screenDistance = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                        if screenDistance < closestDistance and isVisible(part, "VisibleCheck") then
+                            closestDistance = screenDistance
+                            closestPart = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if closestPart then stickyTarget = closestPart end
+    return closestPart
+end
+
+local function getSilentTarget()
+    local boneName = safeValue(Options.AimBone, "Head")
+    local radius = safeValue(Options.SilentFOV, 200)
+    local chance = safeValue(Options.SilentChance, 100)
+    local wallbang = safeValue(Options.SilentWallbang, false)
+    if math.random(1, 100) > chance then return nil end
+    local viewport = Camera.ViewportSize
+    local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+    local closestPart, closestDistance = nil, radius
+    for _, player in ipairs(Players:GetPlayers()) do
+        if isEnemy(player, "TeamCheck") then
+            local character = player.Character
+            if isAlive(character) then
+                local part = getBonePart(character, boneName)
+                if part and part:IsA("BasePart") then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local screenDistance = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                        local visibleOK = wallbang or isVisible(part, "VisibleCheck")
+                        if screenDistance < closestDistance and visibleOK then
+                            closestDistance = screenDistance
+                            closestPart = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPart
+end
+
+local function getRageTarget()
+    local boneName = safeValue(Options.RageBone, "Head")
+    local radius = safeValue(Options.RageFOV, 400)
+    local viewport = Camera.ViewportSize
+    local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+    local closestPart, closestDistance = nil, radius
+    for _, player in ipairs(Players:GetPlayers()) do
+        if isEnemy(player, "RageTeamCheck") then
+            local character = player.Character
+            if isAlive(character) then
+                local part = getBonePart(character, boneName)
+                if part and part:IsA("BasePart") then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local screenDistance = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                        if screenDistance < closestDistance then
+                            closestDistance = screenDistance
+                            closestPart = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPart
+end
+
+--=====================================================================
+-- FOV updates
+--=====================================================================
+local function updateFOV()
+    local viewport = Camera.ViewportSize
+    local radius = safeValue(Options.AimFOV, 150)
+    local show = safeValue(Options.ShowFOVCircle, true)
+    local glow = safeValue(Options.GlowWhenLocked, true)
+    FOVCircle.Size = UDim2.fromOffset(radius * 2, radius * 2)
+    FOVCircle.Position = UDim2.fromOffset(viewport.X / 2, viewport.Y / 2)
+    FOVCircle.Visible = AimAssistEnabled and show
+    local baseColor = safeValue(Options.FOVCircleColor, NEON_PURPLE)
+    if glow and TargetLocked then
+        Stroke.Color = Color3.new(math.min(baseColor.R*1.4,1), math.min(baseColor.G*1.4,1), math.min(baseColor.B*1.4,1))
+    else
+        Stroke.Color = baseColor
+    end
+    Stroke.Thickness = safeValue(Options.FOVCircleThickness, 2)
+
+    local sradius = safeValue(Options.SilentFOV, 200)
+    SilentCircle.Size = UDim2.fromOffset(sradius * 2, sradius * 2)
+    SilentCircle.Position = UDim2.fromOffset(viewport.X / 2, viewport.Y / 2)
+    SilentCircle.Visible = SilentAimEnabled and safeValue(Options.ShowSilentFOV, true)
+    SilentStroke.Color = safeValue(Options.SilentFOVColor, Color3.fromRGB(0, 200, 255))
+    SilentStroke.Thickness = safeValue(Options.SilentFOVThickness, 1)
+
+    local rradius = safeValue(Options.RageFOV, 400)
+    RageCircle.Size = UDim2.fromOffset(rradius * 2, rradius * 2)
+    RageCircle.Position = UDim2.fromOffset(viewport.X / 2, viewport.Y / 2)
+    RageCircle.Visible = RageAimEnabled
+end
+
+--=====================================================================
+-- ESP
+--=====================================================================
+local espDrawings = {}
+local function getOrCreateESP(player)
+    if espDrawings[player] then return espDrawings[player] end
+    local entry = {
+        box = Drawing.new("Square"),
+        name = Drawing.new("Text"),
+        tracer = Drawing.new("Line"),
+        healthText = Drawing.new("Text"),
+        healthBar = Drawing.new("Square"),
+        highlight = nil,
+        bones = {},
+    }
+    espDrawings[player] = entry
+    return entry
+end
+local function destroyESP(player)
+    local e = espDrawings[player]
+    if not e then return end
+    for _, d in pairs(e) do
+        if typeof(d) == "table" then
+            for _, line in pairs(d) do pcall(function() line:Remove() end) end
+        elseif d then
+            pcall(function() d:Remove() end)
+        end
+    end
+    if e.highlight then pcall(function() e.highlight:Destroy() end) end
+    espDrawings[player] = nil
+end
+local function getCharacterBounds(character)
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    local head = character:FindFirstChild("Head")
+    if not head then return nil end
+    local topScreen, topOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+    local botScreen, botOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+    if not (topOn and botOn) then return nil end
+    local height = math.abs(botScreen.Y - topScreen.Y)
+    local width = height * 0.5
+    return {x = topScreen.X - width / 2, y = topScreen.Y, w = width, h = height, top = topScreen, bot = botScreen}
+end
+
+local function updateESP()
+    for player, entry in pairs(espDrawings) do
+        if not player.Parent or not player.Character or not player.Character:FindFirstChild("Head") then
+            destroyESP(player)
+        end
+    end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        local enemyOK = (not safeValue(Toggles.TeamCheck, true))
+            or (not LocalPlayer.Team) or (not player.Team)
+            or (LocalPlayer.Team ~= player.Team)
+        local char = player.Character
+        local shouldDraw = char
+            and char:FindFirstChild("Head")
+            and char:FindFirstChild("HumanoidRootPart")
+            and char:FindFirstChildOfClass("Humanoid")
+            and char.Humanoid.Health > 0
+            and enemyOK
+            and (safeValue(Toggles.ESPBoxes, false)
+              or safeValue(Toggles.ESPNames, false)
+              or safeValue(Toggles.ESPHealth, false)
+              or safeValue(Toggles.ESPTracers, false)
+              or safeValue(Toggles.ESPHighlight, false)
+              or safeValue(Toggles.ESPSkeleton, false))
+        local entry = espDrawings[player]
+        if shouldDraw then
+            entry = entry or getOrCreateESP(player)
+            local bounds = getCharacterBounds(char)
+            local hum = char.Humanoid
+            if bounds and safeValue(Toggles.ESPBoxes, false) then
+                entry.box.Visible = true
+                entry.box.Size = Vector2.new(bounds.w, bounds.h)
+                entry.box.Position = Vector2.new(bounds.x, bounds.y)
+                entry.box.Color = safeValue(Options.ESPBoxColor, NEON_PURPLE)
+                entry.box.Thickness = safeValue(Options.ESPBoxThickness, 1)
+                entry.box.Filled = false
+                entry.box.Transparency = 1
+            else entry.box.Visible = false end
+            if bounds and safeValue(Toggles.ESPNames, false) then
+                entry.name.Visible = true
+                local txt = player.Name
+                if safeValue(Toggles.ESPDistance, false) then
+                    local d = math.floor((char.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude)
+                    txt = txt .. " [" .. d .. "m]"
+                end
+                entry.name.Text = txt
+                entry.name.Size = safeValue(Options.ESPNameSize, 14)
+                entry.name.Color = safeValue(Options.ESPNameColor, Color3.new(1,1,1))
+                entry.name.Center = true
+                entry.name.Outline = true
+                entry.name.Position = Vector2.new(bounds.top.X, bounds.top.Y - safeValue(Options.ESPNameSize, 14) - 4)
+            else entry.name.Visible = false end
+            if bounds and safeValue(Toggles.ESPHealth, false) then
+                entry.healthText.Visible = true
+                entry.healthText.Text = math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth)
+                entry.healthText.Size = 14
+                entry.healthText.Color = Color3.new(0, 1, 0)
+                entry.healthText.Center = true
+                entry.healthText.Outline = true
+                entry.healthText.Position = Vector2.new(bounds.bot.X, bounds.bot.Y + 4)
+                if safeValue(Toggles.ESPHealthBar, false) then
+                    local pct = hum.Health / hum.MaxHealth
+                    entry.healthBar.Visible = true
+                    entry.healthBar.Size = Vector2.new(2, bounds.h)
+                    entry.healthBar.Position = Vector2.new(bounds.x - 6, bounds.y + bounds.h * (1 - pct))
+                    entry.healthBar.Color = Color3.new(1 - pct, pct, 0)
+                    entry.healthBar.Filled = true
+                    entry.healthBar.Transparency = 1
+                else entry.healthBar.Visible = false end
+            else
+                entry.healthText.Visible = false
+                entry.healthBar.Visible = false
+            end
+            if bounds and safeValue(Toggles.ESPTracers, false) then
+                local vp = Camera.ViewportSize
+                entry.tracer.Visible = true
+                entry.tracer.From = Vector2.new(vp.X / 2, vp.Y)
+                entry.tracer.To = Vector2.new(bounds.top.X, bounds.bot.Y)
+                entry.tracer.Color = safeValue(Options.ESPTracerColor, NEON_PURPLE)
+                entry.tracer.Thickness = safeValue(Options.ESPTracerThickness, 1)
+                entry.tracer.Transparency = 1
+            else entry.tracer.Visible = false end
+            if safeValue(Toggles.ESPHighlight, false) then
+                if not entry.highlight or not entry.highlight.Parent then
+                    local h = Instance.new("Highlight")
+                    h.Name = "VYX_Highlight"
+                    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    h.Adornee = char
+                    h.Parent = char
+                    entry.highlight = h
+                end
+                entry.highlight.FillColor = safeValue(Options.ESPHighlightColor, NEON_PURPLE)
+                entry.highlight.OutlineColor = safeValue(Options.ESPHighlightColor, NEON_PURPLE)
+                entry.highlight.FillTransparency = 0.6
+            elseif entry.highlight then
+                entry.highlight:Destroy()
+                entry.highlight = nil
+            end
+            if bounds and safeValue(Toggles.ESPSkeleton, false) then
+                local skelColor = safeValue(Options.ESPSkeletonColor, Color3.new(1,1,1))
+                local function line(a, b)
+                    if not a or not b then return end
+                    local ap, aOn = Camera:WorldToViewportPoint(a)
+                    local bp, bOn = Camera:WorldToViewportPoint(b)
+                    if not (aOn and bOn) then return nil end
+                    return { from = Vector2.new(ap.X, ap.Y), to = Vector2.new(bp.X, bp.Y) }
+                end
+                local head = char:FindFirstChild("Head")
+                local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                local lt = char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm")
+                local rt = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
+                local ll = char:FindFirstChild("LeftFoot") or char:FindFirstChild("Left Leg")
+                local rl = char:FindFirstChild("RightFoot") or char:FindFirstChild("Right Leg")
+                local segments = {
+                    line(head and head.Position, torso and torso.Position),
+                    line(torso and torso.Position, lt and lt.Position),
+                    line(torso and torso.Position, rt and rt.Position),
+                    line(hrp and hrp.Position, ll and ll.Position),
+                    line(hrp and hrp.Position, rl and rl.Position),
+                }
+                for i = 1, 5 do
+                    entry.bones[i] = entry.bones[i] or Drawing.new("Line")
+                    local ln = entry.bones[i]
+                    local seg = segments[i]
+                    if seg then
+                        ln.Visible = true
+                        ln.From = seg.from
+                        ln.To = seg.to
+                        ln.Color = skelColor
+                        ln.Thickness = 1
+                        ln.Transparency = 1
+                    else ln.Visible = false end
+                end
+            else
+                for _, ln in pairs(entry.bones) do ln.Visible = false end
+            end
+        else
+            if entry then destroyESP(player) end
+        end
+    end
+end
+
+Players.PlayerRemoving:Connect(function(p) destroyESP(p) end)
+
+--=====================================================================
+-- Silent aim hook (deferred)
+--=====================================================================
+task.spawn(function()
+    task.wait(3)
+    local hookOK, hookErr = pcall(function()
+        local mt = getrawmetatable(game)
+        local oldIndex = mt.__index
+        setreadonly(mt, false)
+        mt.__index = newcclosure(function(self, key)
+            if not SilentAimEnabled and not (RageAimEnabled and Toggles.RageSilent.Value) then
+                return oldIndex(self, key)
+            end
+            local usePart = silentTargetPart or rageTargetPart
+            if not usePart or not usePart.Parent then
+                return oldIndex(self, key)
+            end
+            if key ~= "Hit" and key ~= "Target" and key ~= "TargetPosition" and key ~= "UnitRay" then
+                return oldIndex(self, key)
+            end
+            if self ~= silentMouse then
+                return oldIndex(self, key)
+            end
+            if key == "Hit" then
+                local pos = usePart.Position
+                return CFrame.new(pos, pos + Camera.CFrame.LookVector)
+            elseif key == "Target" then
+                return usePart
+            elseif key == "TargetPosition" then
+                return usePart.Position
+            elseif key == "UnitRay" then
+                local origin = Camera.CFrame.Position
+                local dir = (usePart.Position - origin).Unit
+                return Ray.new(origin, dir * 5000)
+            end
+            return oldIndex(self, key)
+        end)
+        setreadonly(mt, true)
+    end)
+    if not hookOK then warn("[VYX] Silent aim hook failed:", hookErr) end
+end)
+
+--=====================================================================
+-- Main loop
+--=====================================================================
+RunService.RenderStepped:Connect(function(dt)
+    TargetLocked = false
+
+    if AimAssistEnabled then
+        local target = getClosestTarget()
+        if target then
+            TargetLocked = true
+            local holdMode = safeValue(Options.HoldToAim, true)
+            local holdState = Options.CombatKey and Options.CombatKey:GetState() or false
+            if (not holdMode) or holdState then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(target.Position)
+                if onScreen then
+                    local mouse = UserInputService:GetMouseLocation()
+                    local dx = screenPos.X - mouse.X
+                    local dy = screenPos.Y - mouse.Y
+                    local s = math.max(safeValue(Options.AimSmoothness, 0.5), 0.1)
+                    if mousemoverel then mousemoverel(dx / s, dy / s) end
+                end
+            end
+        end
+    end
+
+    if SilentAimEnabled then
+        silentTargetPart = getSilentTarget()
+    else
+        silentTargetPart = nil
+    end
+
+    rageTargetPart = nil
+    if RageAimEnabled then
+        local rageTarget = getRageTarget()
+        if rageTarget then
+            rageTargetPart = rageTarget
+            TargetLocked = true
+        end
+    end
+
+    if RageAimEnabled and AutoShootEnabled and rageTargetPart then
+        local rageKeyHeld = Options.RageKey and Options.RageKey:GetState() or false
+        local autoFire = safeValue(Toggles.RageAutoFire, true)
+        if (not autoFire) or rageKeyHeld then
+            local now = tick()
+            local delay = safeValue(Options.RageDelay, 0.05)
+            if now - lastShotTime >= delay then
+                lastShotTime = now
+                local mouse = LocalPlayer:GetMouse()
+                pcall(function() mouse1click() end)
+            end
+        end
+    end
+
+    updateFOV()
+    updateESP()
+end)
+
+--=====================================================================
+-- UI Settings
+--=====================================================================
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu")
+MenuGroup:AddToggle("KeybindMenuOpen", {
+    Default = Library.KeybindFrame.Visible,
+    Text = "Open Keybind Menu",
+    Callback = function(value) Library.KeybindFrame.Visible = value end,
+})
+MenuGroup:AddToggle("ShowCustomCursor", {
+    Text = "Custom Cursor", Default = true,
+    Callback = function(Value) Library.ShowCustomCursor = Value end,
+})
+MenuGroup:AddDropdown("NotificationSide", {
+    Values = { "Left", "Right" }, Default = "Right",
+    Text = "Notification Side",
+    Callback = function(Value) Library:SetNotifySide(Value) end,
+})
+MenuGroup:AddDropdown("DPIDropdown", {
+    Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
+    Default = "100%", Text = "DPI Scale",
+    Callback = function(Value)
+        Value = Value:gsub("%%", "")
+        Library:SetDPIScale(tonumber(Value))
+    end,
+})
+MenuGroup:AddDivider()
+MenuGroup:AddLabel("Menu Keybind"):AddKeyPicker("MenuKeybind", {
+    Default = "RightShift", NoUI = false, Text = "Menu Keybind",
+    SyncToggleState = false, Mode = "Toggle",
+})
+Library.ToggleKeybind = Options.MenuKeybind
+MenuGroup:AddButton("Unload", function() Library:Unload() end)
+
+--=====================================================================
+-- Managers
+--=====================================================================
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
+ThemeManager:SetFolder("VYX")
+SaveManager:SetFolder("VYX/Configs")
+SaveManager:BuildConfigSection(Tabs["UI Settings"])
+ThemeManager:ApplyToTab(Tabs["UI Settings"])
+SaveManager:LoadAutoloadConfig()
+
+Library:Notify("VYX v5.1 loaded — RightShift for menu", 3)
